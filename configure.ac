@@ -92,6 +92,9 @@ AC_ARG_WITH(openssl,
 AC_ARG_WITH(libz,
   AC_HELP_STRING([--with-libz],[Use Libz for compression]),
   use_libz=$withval,use_libz=auto)
+AC_ARG_WITH(wincrypto,
+  AC_HELP_STRING([--with-wincrypto],[Use Windows CryptoAPI for crypto]),
+  use_wincrypto=$withval,use_wincrypto=auto)
 
 # Look for OpenSSL (default)
 if test "$use_openssl" != "no" && test "$use_libgcrypt" != "yes"; then
@@ -102,20 +105,33 @@ fi
 # Look for libgcrypt
 if test "$ac_cv_libssl" != "yes" && test "$use_libgcrypt" != "no"; then
   AC_LIB_HAVE_LINKFLAGS([gcrypt], [], [#include <gcrypt.h>])
-  LIBS="$LIBS -lgcrypt"
+fi
+
+# Look for Windows CryptoAPI
+if test "$ac_cv_libssl" != "yes" && test "$use_wincrypto" != "no"; then
+  AC_CHECK_HEADERS([wincrypt.h], [ac_cv_wincrypto=yes], [], [
+    #include <windows.h>
+    #include <wincrypt.h>
+  ])
 fi
 
 AC_SUBST(LIBSREQUIRED)
 
-if test "$ac_cv_libssl" != "yes" && test "$ac_cv_libgcrypt" != "yes"; then
+if test "$ac_cv_libssl" != "yes" && test "$ac_cv_libgcrypt" != "yes" && test "$ac_cv_wincrypto" != "yes"; then
   AC_MSG_ERROR([cannot find OpenSSL or Libgcrypt,
 try --with-libssl-prefix=PATH or --with-libgcrypt-prefix=PATH])
 fi
 
 if test "$ac_cv_libgcrypt" = "yes"; then
   AC_DEFINE(LIBSSH2_LIBGCRYPT, 1, [Use libgcrypt])
+  LIBS="$LIBS -lgcrypt"
 fi
 AM_CONDITIONAL(LIBGCRYPT, test "$ac_cv_libgcrypt" = "yes")
+
+if test "$ac_cv_wincrypto" = "yes"; then
+  AC_DEFINE(LIBSSH2_WINCRYPTO, 1, [Use Windows CryptoAPI])
+fi
+AM_CONDITIONAL(WINCRYPTO, test "$ac_cv_wincrypto" = "yes")
 
 # Not all OpenSSL have AES-CTR functions.
 if test "$ac_cv_libssl" = "yes"; then
@@ -318,7 +334,7 @@ AC_MSG_NOTICE([summary of build options:
   Compiler:         ${CC}
   Compiler flags:   ${CFLAGS}
   Library types:    Shared=${enable_shared}, Static=${enable_static}
-  Crypto library:   openssl: ${ac_cv_libssl:-no} (AES-CTR: ${ac_cv_func_EVP_aes_128_ctr:-N/A}) libgcrypt: ${ac_cv_libgcrypt:-no}
+  Crypto library:   openssl: ${ac_cv_libssl:-no} (AES-CTR: ${ac_cv_func_EVP_aes_128_ctr:-N/A}) libgcrypt: ${ac_cv_libgcrypt:-no} wincrypto: ${ac_cv_wincrypto:-no}
   Debug build:      $enable_debug
   Build examples:   $build_examples
   Path to sshd:     $ac_cv_path_SSHD (only for self-tests)
