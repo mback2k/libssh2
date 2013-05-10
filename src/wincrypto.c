@@ -40,10 +40,18 @@
 
 #ifdef LIBSSH2_WINCRYPTO /* compile only if we build with wincrypto */
 
+#include <math.h>
+#include <stdlib.h>
+
 #ifndef CALG_HMAC
 #define CALG_HMAC (ALG_CLASS_HASH | ALG_TYPE_ANY | ALG_SID_HMAC)
 #endif
 
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Generic functions
+ */
 
 int
 _libssh2_wincrypto_random(void *buf, int len)
@@ -66,6 +74,11 @@ _libssh2_wincrypto_random(void *buf, int len)
     return rc;
 }
 
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Hash functions
+ */
 
 int
 _libssh2_wincrypto_hash_init(struct _libssh2_wincrypto_hash_ctx **ctx,
@@ -115,14 +128,16 @@ int
 _libssh2_wincrypto_hash_final(struct _libssh2_wincrypto_hash_ctx *ctx,
                               unsigned char *hash)
 {
-    int rc;
+    int rc = 1;
 
     fprintf(stderr, "_libssh2_wincrypto_hash_final\n");
 
-    rc = CryptGetHashParam(ctx->hCryptHash, HP_HASHVAL,
-                           hash, &ctx->hashlen, 0);
-    if (!rc)
-        fprintf(stderr, "CryptGetHashParam error: %d\n", GetLastError());
+    if (hash) {
+        rc = CryptGetHashParam(ctx->hCryptHash, HP_HASHVAL,
+                               hash, &ctx->hashlen, 0);
+        if (!rc)
+            fprintf(stderr, "CryptGetHashParam error: %d\n", GetLastError());
+    }
 
     CryptDestroyHash(ctx->hCryptHash);
     CryptReleaseContext(ctx->hCryptProv, 0);
@@ -146,7 +161,7 @@ _libssh2_wincrypto_hash(const unsigned char *data, unsigned long datalen,
     if (CryptAcquireContext(&hCryptProv, NULL, NULL,
                             PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
         if (CryptCreateHash(hCryptProv, algID, 0, 0, &hCryptHash)) {
-            if (CryptHashData(hCryptHash, (unsigned char *) data,
+            if (CryptHashData(hCryptHash, (unsigned char *)data,
                               datalen, 0)) {
                 rc = CryptGetHashParam(hCryptHash, HP_HASHVAL,
                                        hash, &hashlen, 0);
@@ -167,6 +182,11 @@ _libssh2_wincrypto_hash(const unsigned char *data, unsigned long datalen,
     return rc;
 }
 
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: HMAC functions
+ */
 
 int
 _libssh2_wincrypto_hmac_init(struct _libssh2_wincrypto_hmac_ctx **ctx,
@@ -208,7 +228,7 @@ _libssh2_wincrypto_hmac_init(struct _libssh2_wincrypto_hmac_ctx **ctx,
     (*ctx)->hmacInfo.HashAlgid = algID;
 
     if (!CryptSetHashParam((*ctx)->hCryptHash, HP_HMAC_INFO,
-                           (unsigned char *) &(*ctx)->hmacInfo, 0)) {
+                           (unsigned char *)(&(*ctx)->hmacInfo), 0)) {
         fprintf(stderr, "CryptSetHashParam error: %d\n", GetLastError());
         CryptDestroyHash((*ctx)->hCryptHash);
         CryptDestroyKey((*ctx)->hCryptKey);
@@ -260,43 +280,55 @@ _libssh2_wincrypto_hmac_cleanup(struct _libssh2_wincrypto_hmac_ctx *ctx)
 }
 
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: RSA functions
+ */
+
 int
-_libssh2_rsa_new(libssh2_rsa_ctx **rsa,
-                 const unsigned char *edata,
-                 unsigned long elen,
-                 const unsigned char *ndata,
-                 unsigned long nlen,
-                 const unsigned char *ddata,
-                 unsigned long dlen,
-                 const unsigned char *pdata,
-                 unsigned long plen,
-                 const unsigned char *qdata,
-                 unsigned long qlen,
-                 const unsigned char *e1data,
-                 unsigned long e1len,
-                 const unsigned char *e2data,
-                 unsigned long e2len,
-                 const unsigned char *coeffdata, unsigned long coefflen)
+_libssh2_wincrypto_rsa_new(libssh2_rsa_ctx **rsa,
+                           const unsigned char *edata,
+                           unsigned long elen,
+                           const unsigned char *ndata,
+                           unsigned long nlen,
+                           const unsigned char *ddata,
+                           unsigned long dlen,
+                           const unsigned char *pdata,
+                           unsigned long plen,
+                           const unsigned char *qdata,
+                           unsigned long qlen,
+                           const unsigned char *e1data,
+                           unsigned long e1len,
+                           const unsigned char *e2data,
+                           unsigned long e2len,
+                           const unsigned char *coeffdata,
+                           unsigned long coefflen)
 {
-    fprintf(stderr, "_libssh2_rsa_new\n");
+    fprintf(stderr, "_libssh2_wincrypto_rsa_new\n");
 
     BLOBHEADER *header;
     RSAPUBKEY *pubkey;
     unsigned char *key;
-    unsigned long keylen, offset;
+    unsigned long keylen, pubexp, offset;
     int rc;
+
+    if (elen > sizeof(pubexp)) {
+        fprintf(stderr, "Windows CryptoAPI does not support "
+                        "public exponent length: %d\n", elen);
+        return -1;
+    }
 
     *rsa = malloc(sizeof(struct _libssh2_wincrypto_key_ctx));
     if (!(*rsa))
-        return 0;
+        return -1;
 
-    memset(rsa, 0, sizeof(struct _libssh2_wincrypto_key_ctx));
+    memset(*rsa, 0, sizeof(struct _libssh2_wincrypto_key_ctx));
 
     if (!CryptAcquireContext(&(*rsa)->hCryptProv, NULL, NULL,
                              PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
         fprintf(stderr, "CryptAcquireContext error: %d\n", GetLastError());
         free(*rsa);
-        return 0;
+        return -1;
     }
 
     offset = sizeof(BLOBHEADER) + sizeof(RSAPUBKEY);
@@ -308,23 +340,36 @@ _libssh2_rsa_new(libssh2_rsa_ctx **rsa,
     if (!key) {
         CryptReleaseContext((*rsa)->hCryptProv, 0);
         free(*rsa);
-        return 0;
+        return -1;
     }
 
     memset(key, 0, keylen);
 
+    memcpy(&pubexp, edata, min(elen, sizeof(pubexp)));
+
+    fprintf(stderr, "e %d len %d = %d\n", edata, elen, pubexp);
+    for (rc = 0; rc < elen; rc++)
+        fprintf(stderr, "[0x%02x]\n", edata[rc]);
+    fprintf(stderr, "n %d len %d\n", ndata, nlen);
+    fprintf(stderr, "d %d len %d\n", ddata, dlen);
+    fprintf(stderr, "p %d len %d\n", pdata, plen);
+    fprintf(stderr, "q %d len %d\n", qdata, qlen);
+    fprintf(stderr, "e1 %d len %d\n", e1data, e1len);
+    fprintf(stderr, "e2 %d len %d\n", e2data, e2len);
+    fprintf(stderr, "coeff %d len %d\n", coeffdata, coefflen);
+
     /* http://msdn.microsoft.com/library/windows/desktop/aa387453.aspx */
     header = (BLOBHEADER*) key;
     header->bType = ddata ? PRIVATEKEYBLOB : PUBLICKEYBLOB;
-    header->bVersion = 2; /* RSA2 */
+    header->bVersion = max(CUR_BLOB_VERSION, 2); /* RSA2 */
     header->reserved = 0;
     header->aiKeyAlg = CALG_RSA_KEYX;
 
     /* http://msdn.microsoft.com/library/windows/desktop/aa387685.aspx */
     pubkey = (RSAPUBKEY*) (key + sizeof(BLOBHEADER));
     pubkey->magic = 0x31415352; /* RSA2 */
-    pubkey->bitlen = nlen;
-    pubkey->pubexp = (DWORD) *edata; /* really? */
+    pubkey->bitlen = nlen * 8;
+    pubkey->pubexp = pubexp;
 
     /* http://msdn.microsoft.com/library/cc250013.aspx */
     memcpy(key + offset, ndata, nlen);
@@ -360,52 +405,96 @@ _libssh2_rsa_new(libssh2_rsa_ctx **rsa,
         fprintf(stderr, "CryptImportKey error: %d\n", GetLastError());
         CryptReleaseContext((*rsa)->hCryptProv, 0);
         free(*rsa);
-        return 0;
+        return -1;
     }
 
-    return 1;
-}
-
-int
-_libssh2_rsa_new_private(libssh2_rsa_ctx **rsa,
-                         LIBSSH2_SESSION *session,
-                         const char *filename, unsigned const char *passphrase)
-{
-    fprintf(stderr, "_libssh2_rsa_new_private\n");
-
-    /* to be implemented */
+    fprintf(stderr, "_libssh2_wincrypto_rsa_new done\n");
     return 0;
 }
 
 int
-_libssh2_rsa_sha1_verify(libssh2_rsa_ctx *rsa,
-                         const unsigned char *sig,
-                         unsigned long sig_len,
-                         const unsigned char *m, unsigned long m_len)
+_libssh2_wincrypto_rsa_new_private(libssh2_rsa_ctx **rsa,
+                                   LIBSSH2_SESSION *session,
+                                   const char *filename,
+                                   unsigned const char *passphrase)
 {
-    fprintf(stderr, "_libssh2_rsa_sha1_verify\n");
+    fprintf(stderr, "_libssh2_wincrypto_rsa_new_private\n");
 
     /* to be implemented */
-    return 0;
+    return -1;
 }
 
 int
-_libssh2_rsa_sha1_sign(LIBSSH2_SESSION *session,
-                       libssh2_rsa_ctx *rsactx,
-                       const unsigned char *hash,
-                       size_t hash_len,
-                       unsigned char **signature, size_t *signature_len)
+_libssh2_wincrypto_rsa_sha1_verify(libssh2_rsa_ctx *rsa,
+                                   const unsigned char *sig,
+                                   unsigned long sig_len,
+                                   const unsigned char *m,
+                                   unsigned long m_len)
 {
-    fprintf(stderr, "_libssh2_rsa_sha1_sign\n");
+    fprintf(stderr, "_libssh2_wincrypto_rsa_sha1_verify\n");
 
-    /* to be implemented */
-    return 0;
+    HCRYPTHASH hCryptHash;
+    int rc = 0;
+
+    if (CryptCreateHash(rsa->hCryptProv, CALG_SHA1, 0, 0, &hCryptHash)) {
+        if (CryptHashData(hCryptHash, (unsigned char *)m, m_len, 0)) {
+            rc = CryptVerifySignature(hCryptHash, (unsigned char *)sig,
+                                      sig_len, rsa->hCryptKey, NULL, 0);
+            if (!rc)
+                fprintf(stderr, "CryptVerifySignature error: %d\n",
+                        GetLastError());
+        } else
+            fprintf(stderr, "CryptHashData error: %d\n", GetLastError());
+
+        CryptDestroyHash(hCryptHash);
+    } else
+        fprintf(stderr, "CryptCreateHash error: %d\n", GetLastError());
+
+    return (rc == 1) ? 0 : -1;
+}
+
+int
+_libssh2_wincrypto_rsa_sha1_sign(LIBSSH2_SESSION *session,
+                                 libssh2_rsa_ctx *rsa,
+                                 const unsigned char *hash,
+                                 size_t hash_len,
+                                 unsigned char **signature,
+                                 size_t *signature_len)
+{
+    fprintf(stderr, "_libssh2_wincrypto_rsa_sha1_sign\n");
+
+    HCRYPTHASH hCryptHash;
+    int rc = 0;
+
+    *signature_len = 0;
+
+    if (CryptCreateHash(rsa->hCryptProv, CALG_SHA1, 0, 0, &hCryptHash)) {
+        if (CryptSetHashParam(hCryptHash, HP_HASHVAL, hash, 0)) {
+            if (CryptSignHash(hCryptHash, AT_SIGNATURE,
+                              NULL, 0, NULL, signature_len)) {
+                *signature = LIBSSH2_ALLOC(session, *signature_len);
+
+                rc = CryptSignHash(hCryptHash, AT_SIGNATURE,
+                                   NULL, 0, *signature, signature_len);
+                if (!rc)
+                    fprintf(stderr, "CryptSignHash error: %d\n",
+                            GetLastError());
+            } else
+                fprintf(stderr, "CryptSignHash error: %d\n", GetLastError());
+        } else
+            fprintf(stderr, "CryptSetHashParam error: %d\n", GetLastError());
+
+        CryptDestroyHash(hCryptHash);
+    } else
+        fprintf(stderr, "CryptCreateHash error: %d\n", GetLastError());
+
+    return (rc == 1) ? 0 : -1;
 }
 
 void
-_libssh2_rsa_free(libssh2_rsa_ctx *rsa)
+_libssh2_wincrypto_rsa_free(libssh2_rsa_ctx *rsa)
 {
-    fprintf(stderr, "_libssh2_rsa_free\n");
+    fprintf(stderr, "_libssh2_wincrypto_rsa_free\n");
 
     CryptDestroyKey(rsa->hCryptKey);
     CryptReleaseContext(rsa->hCryptProv, 0);
@@ -413,6 +502,11 @@ _libssh2_rsa_free(libssh2_rsa_ctx *rsa)
     free(rsa);
 }
 
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Cipher functions
+ */
 
 int
 _libssh2_cipher_init(struct _libssh2_wincrypto_cipher_ctx **ctx, int algo,
@@ -424,7 +518,7 @@ _libssh2_cipher_init(struct _libssh2_wincrypto_cipher_ctx **ctx, int algo,
     if (!(*ctx))
         return -1;
 
-    memset(ctx, 0, sizeof(struct _libssh2_wincrypto_cipher_ctx));
+    memset(*ctx, 0, sizeof(struct _libssh2_wincrypto_cipher_ctx));
 
     if (!CryptAcquireContext(&(*ctx)->hCryptProv, NULL, NULL,
                              PROV_RSA_AES, CRYPT_VERIFYCONTEXT)) {
@@ -459,6 +553,46 @@ _libssh2_cipher_dtor(struct _libssh2_wincrypto_cipher_ctx **ctx)
 }
 
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: BigNumber Context functions
+ */
+ 
+struct _libssh2_wincrypto_bignum_ctx *
+_libssh2_wincrypto_bn_ctx_new()
+{
+    struct _libssh2_wincrypto_bignum_ctx *bnctx;
+
+    bnctx = malloc(sizeof(struct _libssh2_wincrypto_bignum_ctx));
+    if (!bnctx)
+        return NULL;
+
+    memset(bnctx, 0, sizeof(struct _libssh2_wincrypto_bignum_ctx));
+
+    if (!CryptAcquireContext(&bnctx->hCryptProv, NULL, NULL,
+                             PROV_RSA_FULL, CRYPT_VERIFYCONTEXT)) {
+        fprintf(stderr, "CryptAcquireContext error: %d\n", GetLastError());
+        free(bnctx);
+        return NULL;
+    }
+
+    return bnctx;
+}
+
+void
+_libssh2_wincrypto_bn_ctx_free(struct _libssh2_wincrypto_bignum_ctx *bnctx)
+{
+    CryptReleaseContext(bnctx->hCryptProv, 0);
+
+    free(bnctx);
+}
+
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: BigNumber functions
+ */
+
 struct _libssh2_wincrypto_bignum *
 _libssh2_wincrypto_bignum_init()
 {
@@ -475,22 +609,131 @@ int
 _libssh2_wincrypto_bignum_rand(struct _libssh2_wincrypto_bignum *rnd,
                                int bits, int top, int bottom)
 {
-    fprintf(stderr, "_libssh2_wincrypto_bignum_rand\n");
+    unsigned char *bignum;
+    unsigned long index, length;
 
-    /* to be implemented */
-    return 0;
+    fprintf(stderr, "_libssh2_wincrypto_bignum_rand(%d, %d, %d)\n", bits, top, bottom);
+
+    length = ceil((float)bits / 8) * sizeof(unsigned char);
+    bignum = realloc(rnd->bignum, length);
+    if (!bignum)
+        return 0;
+
+    rnd->bignum = bignum;
+    rnd->length = length;
+
+    if (!_libssh2_wincrypto_random(bignum, length))
+        return 0;
+
+    /* calculate significant bits in most significant byte */
+    bits %= 8;
+
+    /* fill most significant byte with zero padding */
+    bignum[length - 1] &= (1 << (8 - bits)) - 1;
+
+    /* set some special last bits in most significant byte */
+    if (top == 0)
+        bignum[length - 1] |= (1 << (7 - bits));
+    else if (top == 1)
+        bignum[length - 1] |= (3 << (6 - bits));
+
+    /* make odd by setting first bit in least significant byte */
+    if (bottom)
+        bignum[0] |= 1;
+
+    return 1;
 }
 
 int
 _libssh2_wincrypto_bignum_mod_exp(struct _libssh2_wincrypto_bignum *r,
                                   struct _libssh2_wincrypto_bignum *a,
                                   const struct _libssh2_wincrypto_bignum *p,
-                                  const struct _libssh2_wincrypto_bignum *m)
+                                  const struct _libssh2_wincrypto_bignum *m,
+                                  struct _libssh2_wincrypto_bignum_ctx *bnctx)
 {
     fprintf(stderr, "_libssh2_wincrypto_bignum_mod_exp\n");
 
-    /* to be implemented */
-    return 0;
+    HCRYPTKEY hCryptKey;
+    BLOBHEADER *header;
+    RSAPUBKEY *pubkey;
+    unsigned char *key, *bignum;
+    unsigned long keylen, offset, rlen;
+    int rc;
+
+    offset = sizeof(BLOBHEADER) + sizeof(RSAPUBKEY);
+    keylen = offset + m->length;
+
+    key = malloc(keylen);
+    if (!key) {
+        return 0;
+    }
+
+    memset(key, 0, keylen);
+
+    fprintf(stderr, "a %d len %d\n", a->bignum, a->length);
+    if (a->length <= sizeof(unsigned long))
+        fprintf(stderr, "a %d\n", *((unsigned long *)a->bignum));
+    fprintf(stderr, "p %d len %d\n", p->bignum, p->length);
+    if (p->length <= sizeof(unsigned long))
+        fprintf(stderr, "p %d\n", *((unsigned long *)p->bignum));
+    for (rc = 0; rc < p->length; rc++)
+        fprintf(stderr, "[0x%02x]\n", p->bignum[rc]);
+    fprintf(stderr, "m %d len %d\n", m->bignum, m->length);
+    if (m->length <= sizeof(unsigned long))
+        fprintf(stderr, "m %d\n", *((unsigned long *)m->bignum));
+
+    /* http://msdn.microsoft.com/library/windows/desktop/aa387453.aspx */
+    header = (BLOBHEADER*) key;
+    header->bType = PUBLICKEYBLOB;
+    header->bVersion = max(CUR_BLOB_VERSION, 2); /* RSA2 */
+    header->reserved = 0;
+    header->aiKeyAlg = CALG_RSA_KEYX;
+
+    /* http://msdn.microsoft.com/library/windows/desktop/aa387685.aspx */
+    pubkey = (RSAPUBKEY*) (key + sizeof(BLOBHEADER));
+    pubkey->magic = 0x31415352; /* RSA2 */
+    pubkey->bitlen = m->length * 8;
+    pubkey->pubexp = *((unsigned long *)p->bignum); /* really? */
+
+    /* http://msdn.microsoft.com/library/cc250013.aspx */
+    memcpy(key + offset, m->bignum, m->length);
+    offset += m->length;
+
+    rc = CryptImportKey(bnctx->hCryptProv, key, keylen, 0, 0, &hCryptKey);
+
+    memset(key, 0, keylen);
+    free(key);
+
+    if (!rc) {
+        fprintf(stderr, "CryptImportKey error: %d\n", GetLastError());
+        return 0;
+    }
+
+    rlen = a->length;
+    CryptEncrypt(hCryptKey, 0, 0, 0, NULL, &rlen, 0);
+
+    rlen = max(rlen, a->length);
+    bignum = realloc(r->bignum, rlen);
+    if (!bignum) {
+        CryptDestroyKey(hCryptKey);
+        return 0;
+    }
+
+    r->bignum = bignum;
+    r->length = rlen;
+
+    memcpy(r->bignum, a->bignum, a->length);
+
+    rlen = a->length;
+    if (!CryptEncrypt(hCryptKey, 0, 0, 0, r->bignum, &rlen, r->length)) {
+        fprintf(stderr, "CryptEncrypt error: %d\n", GetLastError());
+        CryptDestroyKey(hCryptKey);
+        return 0;
+    }
+
+    CryptDestroyKey(hCryptKey);
+
+    return 1;
 }
 
 int
@@ -498,22 +741,16 @@ _libssh2_wincrypto_bignum_set_word(struct _libssh2_wincrypto_bignum *bn,
                                    unsigned long word)
 {
     unsigned char *bignum;
-    fprintf(stderr, "_libssh2_wincrypto_bignum_set_word\n");
 
-    /* make sure the word fits into the buffer */
-    if (bn->length < sizeof(word)) {
-        bignum = realloc(bn->bignum, sizeof(word));
-        if (bignum) {
-            bn->bignum = bignum;
-            bn->length = sizeof(word);
-        }
+    bignum = realloc(bn->bignum, sizeof(word));
+    if (bignum) {
+        bn->bignum = bignum;
+        bn->length = sizeof(word);
     }
-
-    if (bn->length < sizeof(word))
+    else
         return 0;
 
-    fprintf(stderr, "set word = %d\n", word);
-    memcpy(bn->bignum, &word, sizeof(word));
+    *((unsigned long *)bignum) = word;
 
     return 1;
 }
@@ -523,58 +760,66 @@ _libssh2_wincrypto_bignum_from_bin(struct _libssh2_wincrypto_bignum *bn,
                                    unsigned long len,
                                    const unsigned char *bin)
 {
-    fprintf(stderr, "_libssh2_wincrypto_bignum_from_bin\n");
+    unsigned char *bignum;
+    unsigned long index;
 
-    fprintf(stderr, "len = %d\n", len);
-    if (len) {
-        fprintf(stderr, "bn = %d\n", bn);
-        fprintf(stderr, "bn->bignum = %d\n", bn->bignum);
-        bn->bignum = malloc(len);
-        fprintf(stderr, "test\n");
-        fprintf(stderr, "bn->bignum = %d\n", bn->bignum);
-        fprintf(stderr, "bin = %d\n", bin);
-        if (bn->bignum && bin)
-            memcpy(bn->bignum, bin, len);
+    fprintf(stderr, "_libssh2_wincrypto_bignum_from_bin(%d)\n", len);
+
+    if (len > 0) {
+        if (len != bn->length) {
+            bignum = realloc(bn->bignum, len);
+            if (bignum) {
+                bn->bignum = bignum;
+                bn->length = len;
+            }
+        }
+
+        if (bin && bn->bignum && bn->length > 0) {
+            for (index = 0; index < bn->length; index++) {
+                bn->bignum[index] = bin[(bn->length-index)-1];
+                fprintf(stderr, "[0x%02x]", bn->bignum[index]);
+            }
+        }
     }
+    fprintf(stderr, "\n");
 }
 
 void
 _libssh2_wincrypto_bignum_to_bin(const struct _libssh2_wincrypto_bignum *bn,
                                  unsigned char *bin)
 {
+    unsigned long index;
+
     fprintf(stderr, "_libssh2_wincrypto_bignum_to_bin\n");
 
-    if (bin && bn->bignum && bn->length > 0)
-        memcpy(bin, bn->bignum, bn->length);
+    if (bin && bn->bignum && bn->length > 0) {
+        for (index = 0; index < bn->length; index++) {
+            bin[index] = bn->bignum[(bn->length-index)-1];
+            fprintf(stderr, "[0x%02x]", bn->bignum[index]);
+        }
+    }
+    fprintf(stderr, "\n");
 }
 
-int
+unsigned long
 _libssh2_wincrypto_bignum_bits(const struct _libssh2_wincrypto_bignum *bn)
 {
-    unsigned char number = 0;
-    unsigned long offset = 0;
-    int bits = 0;
+    unsigned char number;
+    unsigned long offset, bits;
 
     fprintf(stderr, "_libssh2_wincrypto_bignum_bits\n");
 
-    fprintf(stderr, "bn->bignum = %d\n", bn->bignum);
-    fprintf(stderr, "*bn->bignum = %d\n", *bn->bignum);
+    offset = bn->length;
+    while (!(*(bn->bignum + offset)) && (offset > 0))
+        offset--;
 
-    while (!(*(bn->bignum+offset)) && (offset < bn->length)) {
-        fprintf(stderr, "%d @ %d\n", *(bn->bignum+offset), offset);
-        offset++;
-    }
+    bits = (offset - 1) * 8;
+    number = *(bn->bignum + offset);
 
-    number = *(bn->bignum+offset);
-
-    while (number >>= 1) {
-        fprintf(stderr, "%d > %d\n", number, bits);
+    while (number >>= 1)
         bits++;
-    }
 
-    fprintf(stderr, "%d, %d\n", bits, ((bn->length - offset) * 8));
-
-    return bits + ((bn->length - offset) * 8);
+    return bits;
 }
 
 void
@@ -588,6 +833,10 @@ _libssh2_wincrypto_bignum_free(struct _libssh2_wincrypto_bignum *bn)
     free(bn);
 }
 
+
+/*
+ * Windows CryptoAPI backend: other functions
+ */
 
 int
 _libssh2_pub_priv_keyfile(LIBSSH2_SESSION *session,

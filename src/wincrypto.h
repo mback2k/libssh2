@@ -36,7 +36,6 @@
  * OF SUCH DAMAGE.
  */
 
-#include <stdlib.h>
 #include <windows.h>
 #include <wincrypt.h>
 
@@ -55,18 +54,26 @@
 #define LIBSSH2_RSA 1
 #define LIBSSH2_DSA 0
 
-
 #define MD5_DIGEST_LENGTH 16
 #define SHA_DIGEST_LENGTH 20
 
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Generic functions
+ */
+
 #define libssh2_crypto_init() /* not required */
 #define libssh2_crypto_exit() /* not required */
-
 
 #define _libssh2_random(buf, len) \
   _libssh2_wincrypto_random(buf, len)
 
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Hash structure
+ */
 
 struct _libssh2_wincrypto_hash_ctx {
     HCRYPTPROV hCryptProv;
@@ -75,7 +82,11 @@ struct _libssh2_wincrypto_hash_ctx {
 };
 
 #define libssh2_hash_ctx struct _libssh2_wincrypto_hash_ctx *
-  
+
+/*
+ * Windows CryptoAPI backend: Hash functions
+ */
+
 #define libssh2_sha1_ctx libssh2_hash_ctx
 #define libssh2_sha1_init(ctx) \
   _libssh2_wincrypto_hash_init(ctx, CALG_SHA1, SHA_DIGEST_LENGTH)
@@ -97,6 +108,11 @@ struct _libssh2_wincrypto_hash_ctx {
   _libssh2_wincrypto_hash(data, datalen, CALG_MD5, hash, MD5_DIGEST_LENGTH)
 
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: HMAC structure
+ */
+
 struct _libssh2_wincrypto_hmac_ctx {
     HCRYPTPROV hCryptProv;
     HCRYPTHASH hCryptHash;
@@ -106,6 +122,10 @@ struct _libssh2_wincrypto_hmac_ctx {
 };
 
 #define libssh2_hmac_ctx struct _libssh2_wincrypto_hmac_ctx *
+
+/*
+ * Windows CryptoAPI backend: HMAC functions
+ */
 
 #define libssh2_hmac_sha1_init(ctx, key, keylen) \
   _libssh2_wincrypto_hmac_init(ctx, CALG_SHA1, SHA_DIGEST_LENGTH, key, keylen)
@@ -121,13 +141,36 @@ struct _libssh2_wincrypto_hmac_ctx {
   _libssh2_wincrypto_hmac_cleanup(ctx)
 
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Key Context structure
+ */
+
 struct _libssh2_wincrypto_key_ctx {
     HCRYPTPROV hCryptProv;
     HCRYPTKEY hCryptKey;
 };
 
 #define libssh2_rsa_ctx struct _libssh2_wincrypto_key_ctx
+#define _libssh2_rsa_new(rsactx, e, e_len, n, n_len, \
+                         d, d_len, p, p_len, q, q_len, \
+                         e1, e1_len, e2, e2_len, c, c_len) \
+  _libssh2_wincrypto_rsa_new(rsactx, e, e_len, n, n_len, \
+                             d, d_len, p, p_len, q, q_len, \
+                             e1, e1_len, e2, e2_len, c, c_len)
+#define _libssh2_rsa_new_private(rsactx, s, filename, passphrase) \
+  _libssh2_wincrypto_rsa_new_private(rsactx, s, filename, passphrase)
+#define _libssh2_rsa_sha1_sign(s, rsactx, hash, hash_len, sig, sig_len) \
+  _libssh2_wincrypto_rsa_sha1_sign(s, rsactx, hash, hash_len, sig, sig_len)
+#define _libssh2_rsa_sha1_verify(rsactx, sig, sig_len, m, m_len) \
+  _libssh2_wincrypto_rsa_sha1_verify(rsactx, sig, sig_len, m, m_len)
+#define _libssh2_rsa_free(rsactx) \
+  _libssh2_wincrypto_rsa_free(rsactx)
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: DSA is not implemented yet
+ */
 
 #define libssh2_dsa_ctx /* not supported */
 #define _libssh2_dsa_new(dsactx, p, p_len, q, q_len, \
@@ -136,6 +179,11 @@ struct _libssh2_wincrypto_key_ctx {
 #define _libssh2_dsa_sha1_verify(dsactx, sig, m, m_len)
 #define _libssh2_dsa_free(dsactx)
 
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: Cipher Context structure
+ */
 
 struct _libssh2_wincrypto_cipher_ctx {
     HCRYPTPROV hCryptProv;
@@ -157,58 +205,92 @@ struct _libssh2_wincrypto_cipher_ctx {
 #define _libssh2_cipher_3des CALG_3DES
 
 
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: BigNumber Context structure
+ */
+
+struct _libssh2_wincrypto_bignum_ctx {
+    HCRYPTPROV hCryptProv;
+};
+
+#define _libssh2_bn_ctx struct _libssh2_wincrypto_bignum_ctx
+
+/*
+ * Windows CryptoAPI backend: BigNumber Context functions
+ */
+
+_libssh2_bn_ctx *
+_libssh2_wincrypto_bn_ctx_new();
+
+void
+_libssh2_wincrypto_bn_ctx_free(_libssh2_bn_ctx *bnctx);
+
+#define _libssh2_bn_ctx_new() \
+  _libssh2_wincrypto_bn_ctx_new()
+#define _libssh2_bn_ctx_free(bnctx) \
+  _libssh2_wincrypto_bn_ctx_free(bnctx)
+
+
+/*******************************************************************/
+/*
+ * Windows CryptoAPI backend: BigNumber structure
+ */
+
 struct _libssh2_wincrypto_bignum {
     unsigned char *bignum;
     unsigned long length;
 };
 
 #define _libssh2_bn struct _libssh2_wincrypto_bignum
-#define _libssh2_bn_ctx int
-#define _libssh2_bn_ctx_new() 0
-#define _libssh2_bn_ctx_free(bnctx) ((void)0)
+
+/*
+ * Windows CryptoAPI backend: BigNumber functions
+ */
 
 struct _libssh2_wincrypto_bignum *
 _libssh2_wincrypto_bignum_init();
 
 int
-_libssh2_wincrypto_bignum_rand(struct _libssh2_wincrypto_bignum *rnd,
+_libssh2_wincrypto_bignum_rand(_libssh2_bn *rnd,
                                int bits, int top, int bottom);
 
 int
-_libssh2_wincrypto_bignum_rand(struct _libssh2_wincrypto_bignum *rnd,
+_libssh2_wincrypto_bignum_rand(_libssh2_bn *rnd,
                                int bits, int top, int bottom);
 
 int
-_libssh2_wincrypto_bignum_mod_exp(struct _libssh2_wincrypto_bignum *r,
-                                  struct _libssh2_wincrypto_bignum *a,
-                                  const struct _libssh2_wincrypto_bignum *p,
-                                  const struct _libssh2_wincrypto_bignum *m);
+_libssh2_wincrypto_bignum_mod_exp(_libssh2_bn *r,
+                                  _libssh2_bn *a,
+                                  const _libssh2_bn *p,
+                                  const _libssh2_bn *m,
+                                  _libssh2_bn_ctx *bnctx);
 
 int
-_libssh2_wincrypto_bignum_set_word(struct _libssh2_wincrypto_bignum *bn,
+_libssh2_wincrypto_bignum_set_word(_libssh2_bn *bn,
                                    unsigned long word);
 
 void
-_libssh2_wincrypto_bignum_from_bin(struct _libssh2_wincrypto_bignum *bn,
+_libssh2_wincrypto_bignum_from_bin(_libssh2_bn *bn,
                                    unsigned long len,
                                    const unsigned char *bin);
 
 void
-_libssh2_wincrypto_bignum_to_bin(const struct _libssh2_wincrypto_bignum *bn,
+_libssh2_wincrypto_bignum_to_bin(const _libssh2_bn *bn,
                                  unsigned char *bin);
 
-int
-_libssh2_wincrypto_bignum_bits(const struct _libssh2_wincrypto_bignum *bn);
+unsigned long
+_libssh2_wincrypto_bignum_bits(const _libssh2_bn *bn);
 
 void
-_libssh2_wincrypto_bignum_free(struct _libssh2_wincrypto_bignum *bn);
+_libssh2_wincrypto_bignum_free(_libssh2_bn *bn);
 
 #define _libssh2_bn_init() \
   _libssh2_wincrypto_bignum_init()
 #define _libssh2_bn_rand(bn, bits, top, bottom) \
   _libssh2_wincrypto_bignum_rand(bn, bits, top, bottom)
 #define _libssh2_bn_mod_exp(r, a, p, m, ctx) \
-  _libssh2_wincrypto_bignum_mod_exp(r, a, p, m)
+  _libssh2_wincrypto_bignum_mod_exp(r, a, p, m, ctx)
 #define _libssh2_bn_set_word(bn, word) \
   _libssh2_wincrypto_bignum_set_word(bn, word)
 #define _libssh2_bn_from_bin(bn, len, bin) \
