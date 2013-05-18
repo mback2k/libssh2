@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Marc Hoersken
+ * Copyright (C) 2013 Marc Hoersken <info@marc-hoersken.de>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms,
@@ -62,82 +62,6 @@
 
 /*******************************************************************/
 /*
- * Windows CNG backend: Missing definitions
- */
-#ifndef BCRYPT_RNG_ALGORITHM
-#define BCRYPT_RNG_ALGORITHM L"RNG"
-#endif
-
-#ifndef BCRYPT_MD5_ALGORITHM
-#define BCRYPT_MD5_ALGORITHM L"MD5"
-#endif
-
-#ifndef BCRYPT_SHA1_ALGORITHM
-#define BCRYPT_SHA1_ALGORITHM L"SHA1"
-#endif
-
-#ifndef BCRYPT_RSA_ALGORITHM
-#define BCRYPT_RSA_ALGORITHM L"RSA"
-#endif
-
-#ifndef BCRYPT_DSA_ALGORITHM
-#define BCRYPT_DSA_ALGORITHM L"DSA"
-#endif
-
-#ifndef BCRYPT_AES_ALGORITHM
-#define BCRYPT_AES_ALGORITHM L"AES"
-#endif
-
-#ifndef BCRYPT_RC4_ALGORITHM
-#define BCRYPT_RC4_ALGORITHM L"RC4"
-#endif
-
-#ifndef BCRYPT_3DES_ALGORITHM
-#define BCRYPT_3DES_ALGORITHM L"3DES"
-#endif
-
-#ifndef BCRYPT_ALG_HANDLE_HMAC_FLAG
-#define BCRYPT_ALG_HANDLE_HMAC_FLAG 0x00000008
-#endif
-
-#ifndef BCRYPT_RSAPUBLIC_BLOB
-#define BCRYPT_RSAPUBLIC_BLOB L"RSAPUBLICBLOB"
-#endif
-
-#ifndef BCRYPT_RSAPUBLIC_MAGIC
-#define BCRYPT_RSAPUBLIC_MAGIC 0x31415352 /* RSA1 */
-#endif
-
-#ifndef BCRYPT_RSAFULLPRIVATE_BLOB
-#define BCRYPT_RSAFULLPRIVATE_BLOB L"RSAFULLPRIVATEBLOB"
-#endif
-
-#ifndef BCRYPT_RSAFULLPRIVATE_MAGIC
-#define BCRYPT_RSAFULLPRIVATE_MAGIC 0x33415352 /* RSA3 */
-#endif
-
-#ifndef BCRYPT_NO_KEY_VALIDATION
-#define BCRYPT_NO_KEY_VALIDATION 0x00000008
-#endif
-
-#ifndef BCRYPT_PAD_NONE
-#define BCRYPT_PAD_NONE 0x00000001
-#endif
-
-#ifndef BCRYPT_PAD_PKCS1
-#define BCRYPT_PAD_PKCS1 0x00000002
-#endif
-
-#ifndef BCRYPT_PAD_OAEP
-#define BCRYPT_PAD_OAEP 0x00000004
-#endif
-
-#ifndef BCRYPT_PAD_PSS
-#define BCRYPT_PAD_PSS 0x00000008
-#endif
-
-/*******************************************************************/
-/*
  * Windows CNG backend: Global context handles
  */
 
@@ -149,9 +73,10 @@ struct _libssh2_wincng_ctx {
     BCRYPT_ALG_HANDLE hAlgHmacSHA1;
     BCRYPT_ALG_HANDLE hAlgRSA;
     BCRYPT_ALG_HANDLE hAlgDSA;
-    BCRYPT_ALG_HANDLE hAlgAES;
-    BCRYPT_ALG_HANDLE hAlgRC4;
-    BCRYPT_ALG_HANDLE hAlg3DES;
+    BCRYPT_ALG_HANDLE hAlgAES_CBC;
+    BCRYPT_ALG_HANDLE hAlgAES_CCM;
+    BCRYPT_ALG_HANDLE hAlgRC4_NA;
+    BCRYPT_ALG_HANDLE hAlg3DES_CBC;
 };
 
 struct _libssh2_wincng_ctx _libssh2_wincng;
@@ -179,9 +104,9 @@ struct _libssh2_wincng_ctx _libssh2_wincng;
 struct _libssh2_wincng_hash_ctx {
     BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_HASH_HANDLE hHash;
-    unsigned char *pbHashObject;
-    unsigned long cbHashObject;
-    unsigned long cbHash;
+    PBYTE pbHashObject;
+    DWORD dwHashObject;
+    ULONG cbHash;
 };
 
 #define _libssh2_wincng_hash_ctx struct _libssh2_wincng_hash_ctx
@@ -243,8 +168,8 @@ struct _libssh2_wincng_hash_ctx {
 struct _libssh2_wincng_key_ctx {
     BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_KEY_HANDLE hKey;
-    unsigned char *pbKeyObject;
-    unsigned long cbKeyObject;
+    PBYTE pbKeyObject;
+    ULONG cbKeyObject;
 };
 
 /*
@@ -287,8 +212,10 @@ struct _libssh2_wincng_key_ctx {
 struct _libssh2_wincng_cipher_ctx {
     BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_KEY_HANDLE hKey;
-    unsigned char *pbKeyObject;
-    unsigned long cbKeyObject;
+    PBYTE pbIV;
+    PBYTE pbKeyObject;
+    DWORD dwKeyObject;
+    DWORD dwBlockLength;
 };
 
 #define _libssh2_cipher_ctx struct _libssh2_wincng_cipher_ctx
@@ -299,30 +226,21 @@ struct _libssh2_wincng_cipher_ctx {
 
 struct _libssh2_wincng_cipher_type {
     BCRYPT_ALG_HANDLE *phAlg;
-    LPCWSTR pbMode;
-    unsigned char cbSize;
+    DWORD dwKeyLength;
 };
 
 #define _libssh2_cipher_type(type) struct _libssh2_wincng_cipher_type type
 
-#define _libssh2_cipher_aes256ctr { &_libssh2_wincng.hAlgAES, \
-                                    BCRYPT_CHAIN_MODE_GCM, 256 }
-#define _libssh2_cipher_aes192ctr { &_libssh2_wincng.hAlgAES, \
-                                    BCRYPT_CHAIN_MODE_GCM, 192 }
-#define _libssh2_cipher_aes128ctr { &_libssh2_wincng.hAlgAES, \
-                                    BCRYPT_CHAIN_MODE_GCM, 128 }
-#define _libssh2_cipher_aes256 { &_libssh2_wincng.hAlgAES, \
-                                 BCRYPT_CHAIN_MODE_CBC, 256 }
-#define _libssh2_cipher_aes192 { &_libssh2_wincng.hAlgAES, \
-                                 BCRYPT_CHAIN_MODE_CBC, 192 }
-#define _libssh2_cipher_aes128 { &_libssh2_wincng.hAlgAES, \
-                                 BCRYPT_CHAIN_MODE_CBC, 128 }
+#define _libssh2_cipher_aes256ctr { &_libssh2_wincng.hAlgAES_CCM, 32 }
+#define _libssh2_cipher_aes192ctr { &_libssh2_wincng.hAlgAES_CCM, 24 }
+#define _libssh2_cipher_aes128ctr { &_libssh2_wincng.hAlgAES_CCM, 16 }
+#define _libssh2_cipher_aes256 { &_libssh2_wincng.hAlgAES_CBC, 32 }
+#define _libssh2_cipher_aes192 { &_libssh2_wincng.hAlgAES_CBC, 24 }
+#define _libssh2_cipher_aes128 { &_libssh2_wincng.hAlgAES_CBC, 16 }
 #define _libssh2_cipher_blowfish /* not supported */
-#define _libssh2_cipher_arcfour { &_libssh2_wincng.hAlgRC4, \
-                                  BCRYPT_CHAIN_MODE_NA, 0 }
+#define _libssh2_cipher_arcfour { &_libssh2_wincng.hAlgRC4_NA, 0 }
 #define _libssh2_cipher_cast5  /* not supported */
-#define _libssh2_cipher_3des { &_libssh2_wincng.hAlg3DES, \
-                               BCRYPT_CHAIN_MODE_CBC, 0 }
+#define _libssh2_cipher_3des { &_libssh2_wincng.hAlg3DES_CBC, 24 }
 
 /*
  * Windows CNG backend: Cipher functions
@@ -351,8 +269,8 @@ struct _libssh2_wincng_cipher_type {
  */
 
 struct _libssh2_wincng_bignum {
-    unsigned char *bignum;
-    unsigned long length;
+    PBYTE bignum;
+    ULONG length;
 };
 
 #define _libssh2_bn struct _libssh2_wincng_bignum
