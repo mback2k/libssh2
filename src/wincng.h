@@ -279,6 +279,8 @@ struct _libssh2_wincng_bignum {
  * Windows CNG backend: BigNumber functions
  */
 
+_libssh2_bn *_libssh2_wincng_bignum_init(void);
+
 #define _libssh2_bn_init() \
   _libssh2_wincng_bignum_init()
 #define _libssh2_bn_rand(bn, bits, top, bottom) \
