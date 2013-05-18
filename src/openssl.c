@@ -41,7 +41,7 @@
 #include "libssh2_priv.h"
 
 #ifndef LIBSSH2_LIBGCRYPT /* compile only if we build with OpenSSL */
-#ifndef LIBSSH2_WINCRYPTO
+#ifndef LIBSSH2_WINCNG
 
 #include <string.h>
 
@@ -802,5 +802,5 @@ _libssh2_pub_priv_keyfile(LIBSSH2_SESSION *session,
     return st;
 }
 
-#endif /* !LIBSSH2_WINCRYPTO */
+#endif /* !LIBSSH2_WINCNG */
 #endif /* !LIBSSH2_LIBGCRYPT */

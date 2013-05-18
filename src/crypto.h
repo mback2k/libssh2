@@ -41,8 +41,8 @@
 #ifdef LIBSSH2_LIBGCRYPT
 #include "libgcrypt.h"
 #else
-#ifdef LIBSSH2_WINCRYPTO
-#include "wincrypto.h"
+#ifdef LIBSSH2_WINCNG
+#include "wincng.h"
 #else
 #include "openssl.h"
 #endif
