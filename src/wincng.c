@@ -136,8 +136,16 @@
 #define BCRYPT_PAD_PSS 0x00000008
 #endif
 
-#ifndef CNG_RSA_PRIVATE_KEY_BLOB
-#define CNG_RSA_PRIVATE_KEY_BLOB (LPCSTR)83
+#ifndef CRYPT_STRING_ANY
+#define CRYPT_STRING_ANY 0x00000007
+#endif
+
+#ifndef LEGACY_RSAPRIVATE_BLOB
+#define LEGACY_RSAPRIVATE_BLOB L"CAPIPRIVATEBLOB"
+#endif
+
+#ifndef PKCS_RSA_PRIVATE_KEY
+#define PKCS_RSA_PRIVATE_KEY (LPCSTR) 43
 #endif
 
 
@@ -517,6 +525,19 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     return 0;
 }
 
+#ifdef HAVE_LIBCRYPT32
+/* http://msdn.microsoft.com/library/windows/desktop/aa380285.aspx */
+BOOL WINAPI CryptStringToBinaryA(
+    LPCTSTR pszString,
+    DWORD cchString,
+    DWORD dwFlags,
+    BYTE *pbBinary,
+    DWORD *pcbBinary,
+    DWORD *pdwSkip,
+    DWORD *pdwFlags
+);
+#endif
+
 int
 _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                                 LIBSSH2_SESSION *session,
@@ -528,7 +549,7 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
     PBYTE pbEncoded, pvStructInfo;
     DWORD cbEncoded, cbStructInfo;
     unsigned char *data;
-    unsigned long datalen, readlen;
+    unsigned long datalen;
     int ret;
 
     fprintf(stderr, "_libssh2_wincng_rsa_new_private\n");
@@ -537,6 +558,7 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
 
     fp = fopen(filename, "r");
     if (!fp) {
+        fprintf(stderr, "fopen error: %08x\n", errno);
         return -1;
     }
 
@@ -546,44 +568,51 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
 
     data = LIBSSH2_ALLOC(session, datalen);
     if (!data) {
+        fprintf(stderr, "memory allocation error\n");
         fclose(fp);
         return -1;
     }
 
-    readlen = fread(data, datalen, 1, fp);
+    ret = fread(data, datalen, 1, fp);
 
     fclose(fp);
 
-    if (readlen != datalen) {
+    if (ret != 1) {
+        fprintf(stderr, "fread error: %d\n", ret);
         LIBSSH2_FREE(session, data);
         return -1;
     }
 
-    ret = CryptStringToBinary(data, datalen, CRYPT_STRING_ANY,
-                              NULL, &cbEncoded, NULL, NULL);
+    ret = CryptStringToBinaryA(data, datalen, CRYPT_STRING_ANY,
+                               NULL, &cbEncoded, NULL, NULL);
     if (!ret) {
+        fprintf(stderr, "CryptStringToBinaryA 1 error: %08x\n", GetLastError());
         LIBSSH2_FREE(session, data);
         return -1;
     }
 
     pbEncoded = LIBSSH2_ALLOC(session, cbEncoded);
     if (!pbEncoded) {
+        fprintf(stderr, "memory allocation error\n");
         LIBSSH2_FREE(session, data);
         return -1;
     }
 
-    ret = CryptStringToBinary(data, datalen, CRYPT_STRING_ANY,
-                              pbEncoded, &cbEncoded, NULL, NULL);
+    ret = CryptStringToBinaryA(data, datalen, CRYPT_STRING_ANY,
+                               pbEncoded, &cbEncoded, NULL, NULL);
     if (!ret) {
+        fprintf(stderr, "CryptStringToBinaryA 2 error: %08x\n", GetLastError());
         LIBSSH2_FREE(session, pbEncoded);
         LIBSSH2_FREE(session, data);
         return -1;
     }
 
-    ret = CryptDecodeObjectEx(X509_ASN_ENCODING, CNG_RSA_PRIVATE_KEY_BLOB,
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                              PKCS_RSA_PRIVATE_KEY,
                               pbEncoded, cbEncoded, 0, NULL,
                               NULL, &cbStructInfo);
     if (!ret) {
+        fprintf(stderr, "CryptDecodeObjectEx 1 error: %08x\n", GetLastError());
         LIBSSH2_FREE(session, pbEncoded);
         LIBSSH2_FREE(session, data);
         return -1;
@@ -591,15 +620,18 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
 
     pvStructInfo = LIBSSH2_ALLOC(session, cbStructInfo);
     if (!pvStructInfo) {
+        fprintf(stderr, "memory allocation error\n");
         LIBSSH2_FREE(session, pbEncoded);
         LIBSSH2_FREE(session, data);
         return -1;
     }
 
-    ret = CryptDecodeObjectEx(X509_ASN_ENCODING, CNG_RSA_PRIVATE_KEY_BLOB,
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                              PKCS_RSA_PRIVATE_KEY,
                               pbEncoded, cbEncoded, 0, NULL,
                               pvStructInfo, &cbStructInfo);
     if (!ret) {
+        fprintf(stderr, "CryptDecodeObjectEx 2 error: %08x\n", GetLastError());
         LIBSSH2_FREE(session, pvStructInfo);
         LIBSSH2_FREE(session, pbEncoded);
         LIBSSH2_FREE(session, data);
@@ -619,7 +651,7 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
     (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
 
     ret = BCryptImportKeyPair((*rsa)->hAlg, NULL,
-                              BCRYPT_RSAFULLPRIVATE_BLOB, &(*rsa)->hKey,
+                              LEGACY_RSAPRIVATE_BLOB, &(*rsa)->hKey,
                               pvStructInfo, cbStructInfo, 0);
     if (ret != STATUS_SUCCESS) {
         fprintf(stderr, "BCryptImportKeyPair error: %08x\n", ret);
