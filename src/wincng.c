@@ -749,11 +749,11 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
     if (encrypt) {
         ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
                             ctx->pbIV, ctx->dwBlockLength,
-                            NULL, 0, &cbOutput, BCRYPT_BLOCK_PADDING);
+                            NULL, 0, &cbOutput, 0);
     } else {
         ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
                             ctx->pbIV, ctx->dwBlockLength,
-                            NULL, 0, &cbOutput, BCRYPT_BLOCK_PADDING);
+                            NULL, 0, &cbOutput, 0);
     }
     if (ret == STATUS_SUCCESS) {
         pbOutput = malloc(cbOutput);
@@ -761,13 +761,11 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
             if (encrypt) {
                 ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
                                     ctx->pbIV, ctx->dwBlockLength,
-                                    pbOutput, cbOutput, &cbOutput,
-                                    BCRYPT_BLOCK_PADDING);
+                                    pbOutput, cbOutput, &cbOutput, 0);
             } else {
                 ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
                                     ctx->pbIV, ctx->dwBlockLength,
-                                    pbOutput, cbOutput, &cbOutput,
-                                    BCRYPT_BLOCK_PADDING);
+                                    pbOutput, cbOutput, &cbOutput, 0);
             }
             if (ret == STATUS_SUCCESS) {
                 memcpy(block, pbOutput, cbOutput);
