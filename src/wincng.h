@@ -269,8 +269,8 @@ struct _libssh2_wincng_cipher_type {
  */
 
 struct _libssh2_wincng_bignum {
-    PBYTE bignum;
-    ULONG length;
+    unsigned char *bignum;
+    unsigned long length;
 };
 
 #define _libssh2_bn struct _libssh2_wincng_bignum

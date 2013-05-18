@@ -844,12 +844,12 @@ _libssh2_wincng_bignum_rand(_libssh2_bn *rnd, int bits, int top, int bottom)
         bignum[0] |= (1 << (7 - bits));
     else if (top == 1)
         bignum[0] |= (3 << (6 - bits));
-    fprintf(stderr, "top = %08x\n", bignum[0]);
+    fprintf(stderr, "top = %02x\n", bignum[0]);
 
     /* make odd by setting first bit in least significant byte */
     if (bottom)
         bignum[length - 1] |= 1;
-    fprintf(stderr, "top = %08x\n", bignum[length - 1]);
+    fprintf(stderr, "bottom = %02x\n", bignum[length - 1]);
 
     return 1;
 }
@@ -1035,29 +1035,33 @@ _libssh2_wincng_bignum_from_bin(_libssh2_bn *bn, unsigned long len,
                                 const unsigned char *bin)
 {
     unsigned char *bignum;
-    unsigned long length, bits;
+    unsigned long offset, length, bits;
 
     fprintf(stderr, "_libssh2_wincng_bignum_from_bin(%d)\n", len);
 
     if (bn && bin && len > 0) {
-        if (len != bn->length) {
-            bignum = realloc(bn->bignum, len);
-            if (bignum) {
-                bn->bignum = bignum;
-                bn->length = len;
-            }
-        }
+        bignum = realloc(bn->bignum, len);
+        if (bignum) {
+            bn->bignum = bignum;
+            bn->length = len;
 
-        if (bn->bignum && bn->length == len) {
             memcpy(bn->bignum, bin, len);
 
             bits = _libssh2_wincng_bignum_bits(bn);
             length = ceil((double)bits / 8) * sizeof(unsigned char);
-            bignum = realloc(bn->bignum, length);
-            if (bignum) {
-                bn->bignum = bignum;
-                bn->length = length;
+
+            offset = bn->length - length;
+            if (offset > 0) {
+                memmove(bn->bignum, bn->bignum + offset, length);
+
+                bignum = realloc(bn->bignum, length);
+                if (bignum) {
+                    bn->bignum = bignum;
+                    bn->length = length;
+                }
             }
+
+            fprintf(stderr, "top %02x\n", bn->bignum[0]);
         }
     }
 }
