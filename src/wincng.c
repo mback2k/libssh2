@@ -43,6 +43,10 @@
 #include <math.h>
 #include <stdlib.h>
 
+#ifdef HAVE_LIBCRYPT32
+#include <wincrypt.h>
+#endif
+
 
 /*******************************************************************/
 /*
@@ -130,6 +134,10 @@
 
 #ifndef BCRYPT_PAD_PSS
 #define BCRYPT_PAD_PSS 0x00000008
+#endif
+
+#ifndef CNG_RSA_PRIVATE_KEY_BLOB
+#define CNG_RSA_PRIVATE_KEY_BLOB (LPCSTR)83
 #endif
 
 
@@ -488,8 +496,9 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
         rsakey->cbPrime2 = 0;
     }
 
+    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
 
-    ret = BCryptImportKeyPair(_libssh2_wincng.hAlgRSA, NULL,
+    ret = BCryptImportKeyPair((*rsa)->hAlg, NULL,
                               ddata ? BCRYPT_RSAFULLPRIVATE_BLOB
                                     : BCRYPT_RSAPUBLIC_BLOB,
                               &(*rsa)->hKey, key, keylen, 0);
@@ -514,18 +523,131 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                                 const char *filename,
                                 const unsigned char *passphrase)
 {
-    int ret, rc = -1;
+#ifdef HAVE_LIBCRYPT32
+    FILE *fp;
+    PBYTE pbEncoded, pvStructInfo;
+    DWORD cbEncoded, cbStructInfo;
+    unsigned char *data;
+    unsigned long datalen, readlen;
+    int ret;
 
     fprintf(stderr, "_libssh2_wincng_rsa_new_private\n");
 
+    (void)passphrase;
+
+    fp = fopen(filename, "r");
+    if (!fp) {
+        return -1;
+    }
+
+    fseek(fp, 0L, SEEK_END);
+    datalen = ftell(fp);
+    rewind(fp);
+
+    data = LIBSSH2_ALLOC(session, datalen);
+    if (!data) {
+        fclose(fp);
+        return -1;
+    }
+
+    readlen = fread(data, datalen, 1, fp);
+
+    fclose(fp);
+
+    if (readlen != datalen) {
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    ret = CryptStringToBinary(data, datalen, CRYPT_STRING_ANY,
+                              NULL, &cbEncoded, NULL, NULL);
+    if (!ret) {
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    pbEncoded = LIBSSH2_ALLOC(session, cbEncoded);
+    if (!pbEncoded) {
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    ret = CryptStringToBinary(data, datalen, CRYPT_STRING_ANY,
+                              pbEncoded, &cbEncoded, NULL, NULL);
+    if (!ret) {
+        LIBSSH2_FREE(session, pbEncoded);
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING, CNG_RSA_PRIVATE_KEY_BLOB,
+                              pbEncoded, cbEncoded, 0, NULL,
+                              NULL, &cbStructInfo);
+    if (!ret) {
+        LIBSSH2_FREE(session, pbEncoded);
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    pvStructInfo = LIBSSH2_ALLOC(session, cbStructInfo);
+    if (!pvStructInfo) {
+        LIBSSH2_FREE(session, pbEncoded);
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING, CNG_RSA_PRIVATE_KEY_BLOB,
+                              pbEncoded, cbEncoded, 0, NULL,
+                              pvStructInfo, &cbStructInfo);
+    if (!ret) {
+        LIBSSH2_FREE(session, pvStructInfo);
+        LIBSSH2_FREE(session, pbEncoded);
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    *rsa = malloc(sizeof(struct _libssh2_wincng_key_ctx));
+    if (!(*rsa)) {
+        LIBSSH2_FREE(session, pvStructInfo);
+        LIBSSH2_FREE(session, pbEncoded);
+        LIBSSH2_FREE(session, data);
+        return -1;
+    }
+
+    memset(*rsa, 0, sizeof(struct _libssh2_wincng_key_ctx));
+
+    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
+
+    ret = BCryptImportKeyPair((*rsa)->hAlg, NULL,
+                              BCRYPT_RSAFULLPRIVATE_BLOB, &(*rsa)->hKey,
+                              pvStructInfo, cbStructInfo, 0);
+    if (ret != STATUS_SUCCESS) {
+        fprintf(stderr, "BCryptImportKeyPair error: %08x\n", ret);
+        LIBSSH2_FREE(session, pvStructInfo);
+        LIBSSH2_FREE(session, pbEncoded);
+        LIBSSH2_FREE(session, data);
+        free(*rsa);
+        return -1;
+    }
+
+    LIBSSH2_FREE(session, pbEncoded);
+    LIBSSH2_FREE(session, data);
+
+    (*rsa)->pbKeyObject = pvStructInfo;
+    (*rsa)->cbKeyObject = cbStructInfo;
+
+    fprintf(stderr, "_libssh2_wincng_rsa_new_private done\n");
+    return 0;
+#else
     (void)rsa;
     (void)session;
     (void)filename;
     (void)passphrase;
-    (void)ret;
 
-    /* to be implemented */
-    return rc;
+    return _libssh2_error(session, LIBSSH2_ERROR_FILE,
+                          "Unable to load RSA key from private key file: "
+                          "Method unsupported in Windows CNG backend");
+#endif
 }
 
 int
@@ -956,7 +1078,8 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
                                         r->bignum, r->length, &r->length,
                                         BCRYPT_PAD_NONE);
 
-                    BCryptGenRandom(_libssh2_wincng.hAlgRNG, bignum, length, 0);
+                    BCryptGenRandom(_libssh2_wincng.hAlgRNG,
+                                    bignum, length, 0);
 
                     free(bignum);
 
@@ -1121,8 +1244,8 @@ _libssh2_pub_priv_keyfile(LIBSSH2_SESSION *session,
     (void)passphrase;
 
     return _libssh2_error(session, LIBSSH2_ERROR_FILE,
-                          "Unable to extract public key from private key file:"
-                          " Method unsupported in Windows CNG backend");
+                          "Unable to load public key from private key file: "
+                          "Method unsupported in Windows CNG backend");
 }
 
 void _libssh2_init_aes_ctr(void)

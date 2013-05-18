@@ -110,6 +110,7 @@ fi
 # Look for Windows Cryptography API: Next Generation
 if test "$ac_cv_libssl" != "yes" && test "$use_wincng" != "no"; then
   AC_LIB_HAVE_LINKFLAGS([bcrypt], [#include <bcrypt.h>])
+  AC_LIB_HAVE_LINKFLAGS([crypt32], [#include <wincrypt.h>])
 fi
 
 AC_SUBST(LIBSREQUIRED)
@@ -128,6 +129,9 @@ AM_CONDITIONAL(LIBGCRYPT, test "$ac_cv_libgcrypt" = "yes")
 if test "$ac_cv_libbcrypt" = "yes"; then
   AC_DEFINE(LIBSSH2_WINCNG, 1, [Use Windows CNG])
   LIBS="$LIBS -lbcrypt"
+  if test "$ac_cv_libcrypt32" = "yes"; then
+    LIBS="$LIBS -lcrypt32"
+  fi
 fi
 AM_CONDITIONAL(WINCNG, test "$ac_cv_libbcrypt" = "yes")
 
