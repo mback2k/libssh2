@@ -84,7 +84,6 @@ struct _libssh2_wincng_ctx {
     BCRYPT_ALG_HANDLE hAlgRSA;
     BCRYPT_ALG_HANDLE hAlgDSA;
     BCRYPT_ALG_HANDLE hAlgAES_CBC;
-    BCRYPT_ALG_HANDLE hAlgAES_CCM;
     BCRYPT_ALG_HANDLE hAlgRC4_NA;
     BCRYPT_ALG_HANDLE hAlg3DES_CBC;
 };
@@ -241,9 +240,9 @@ struct _libssh2_wincng_cipher_type {
 
 #define _libssh2_cipher_type(type) struct _libssh2_wincng_cipher_type type
 
-#define _libssh2_cipher_aes256ctr { &_libssh2_wincng.hAlgAES_CCM, 32 }
-#define _libssh2_cipher_aes192ctr { &_libssh2_wincng.hAlgAES_CCM, 24 }
-#define _libssh2_cipher_aes128ctr { &_libssh2_wincng.hAlgAES_CCM, 16 }
+#define _libssh2_cipher_aes256ctr { NULL, 32 }
+#define _libssh2_cipher_aes192ctr { NULL, 24 }
+#define _libssh2_cipher_aes128ctr { NULL, 16 }
 #define _libssh2_cipher_aes256 { &_libssh2_wincng.hAlgAES_CBC, 32 }
 #define _libssh2_cipher_aes192 { &_libssh2_wincng.hAlgAES_CBC, 24 }
 #define _libssh2_cipher_aes128 { &_libssh2_wincng.hAlgAES_CBC, 16 }

@@ -190,14 +190,6 @@ _libssh2_wincng_init(void)
                           sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
     }
 
-    ret = BCryptOpenAlgorithmProvider(&_libssh2_wincng.hAlgAES_CCM,
-                                      BCRYPT_AES_ALGORITHM, NULL, 0);
-    if (ret == STATUS_SUCCESS) {
-        BCryptSetProperty(_libssh2_wincng.hAlgAES_CCM, BCRYPT_CHAINING_MODE,
-                          (PBYTE)BCRYPT_CHAIN_MODE_CCM,
-                          sizeof(BCRYPT_CHAIN_MODE_CCM), 0);
-    }
-
     ret = BCryptOpenAlgorithmProvider(&_libssh2_wincng.hAlgRC4_NA,
                                       BCRYPT_RC4_ALGORITHM, NULL, 0);
     if (ret == STATUS_SUCCESS) {
@@ -226,7 +218,6 @@ _libssh2_wincng_free(void)
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgRSA, 0);
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgDSA, 0);
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgAES_CBC, 0);
-    BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgAES_CCM, 0);
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgRC4_NA, 0);
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlg3DES_CBC, 0);
 }
@@ -794,12 +785,6 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
     unsigned long keylen, offset;
     int ret;
 
-    BCRYPT_KEY_LENGTHS_STRUCT stKeyLengths;
-    WCHAR text[64];
-    DWORD word;
-
-    fprintf(stderr, "_libssh2_cipher_init\n");
-
     (void)encrypt;
 
     ret = BCryptGetProperty(*type.phAlg, BCRYPT_OBJECT_LENGTH,
@@ -807,7 +792,6 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
                             sizeof(dwKeyObject),
                             &cbData, 0);
     if (ret != STATUS_SUCCESS) {
-        fprintf(stderr, "BCryptGetProperty 1 error: %08x\n", ret);
         return -1;
     }
 
@@ -816,7 +800,6 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
                             sizeof(dwBlockLength),
                             &cbData, 0);
     if (ret != STATUS_SUCCESS) {
-        fprintf(stderr, "BCryptGetProperty 2 error: %08x\n", ret);
         return -1;
     }
 
@@ -856,27 +839,11 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
     _libssh2_wincng_mfree(key, keylen);
 
     if (ret != STATUS_SUCCESS) {
-        fprintf(stderr, "BCryptImportKey error: %08x\n", ret);
         _libssh2_wincng_mfree(pbKeyObject, dwKeyObject);
         free(pbIV);
         return -1;
     }
 
-    BCryptGetProperty(*type.phAlg, BCRYPT_ALGORITHM_NAME, (PBYTE)text, sizeof(text), &cbData, 0);
-    fprintf(stderr, "name %S\n", text);
-    BCryptGetProperty(*type.phAlg, BCRYPT_CHAINING_MODE, (PBYTE)text, sizeof(text), &cbData, 0);
-    fprintf(stderr, "mode %S\n", text);
-    BCryptGetProperty(hKey, BCRYPT_KEY_LENGTH, (PBYTE)&word, sizeof(word), &cbData, 0);
-    fprintf(stderr, "keyl %ld\n", word/8);
-    BCryptGetProperty(hKey, BCRYPT_KEY_STRENGTH, (PBYTE)&word, sizeof(word), &cbData, 0);
-    fprintf(stderr, "keys %ld\n", word/8);
-
-    BCryptGetProperty(*type.phAlg, BCRYPT_KEY_LENGTHS, (PBYTE)&stKeyLengths, sizeof(stKeyLengths), &cbData, 0);
-    fprintf(stderr, "min %ld\n", stKeyLengths.dwMinLength);
-    fprintf(stderr, "max %ld\n", stKeyLengths.dwMaxLength);
-    fprintf(stderr, "inc %ld\n", stKeyLengths.dwIncrement);
-
-    fprintf(stderr, "dwKeyStrength %ld\n", type.dwKeyLength);
 
     memcpy(pbIV, iv, dwBlockLength);
 
@@ -899,9 +866,7 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
 {
     PBYTE pbOutput;
     ULONG cbOutput;
-    int ret, rc = -1;
-
-    fprintf(stderr, "_libssh2_wincng_cipher_crypt\n");
+    int ret;
 
     (void)type;
 
@@ -928,23 +893,19 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
             }
             if (ret == STATUS_SUCCESS) {
                 memcpy(block, pbOutput, cbOutput);
-                rc = 0;
             }
 
             _libssh2_wincng_mfree(pbOutput, cbOutput);
-        }
+        } else
+            ret = STATUS_NO_MEMORY;
     }
 
-    fprintf(stderr, "_libssh2_wincng_cipher_crypt %d\n", rc);
-
-    return rc;
+    return ret == STATUS_SUCCESS ? 0 : -1;
 }
 
 void
 _libssh2_wincng_cipher_dtor(_libssh2_cipher_ctx *ctx)
 {
-    fprintf(stderr, "_libssh2_wincng_cipher_dtor\n");
-
     BCryptDestroyKey(ctx->hKey);
 
     _libssh2_wincng_mfree(ctx->pbKeyObject, ctx->dwKeyObject);
