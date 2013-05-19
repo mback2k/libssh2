@@ -244,8 +244,12 @@ _libssh2_wincng_mfree(void *buf, int len)
     if (!buf)
         return;
 
+#ifdef LIBSSH2_MEMORY_OVERWRITE
     if (len > 0)
         _libssh2_wincng_random(buf, len);
+#else
+    (void)len;
+#endif
 
     free(buf);
 }
@@ -256,8 +260,12 @@ _libssh2_wincng_sfree(LIBSSH2_SESSION *session, void *buf, int len)
     if (!buf)
         return;
 
+#ifdef LIBSSH2_MEMORY_OVERWRITE
     if (len > 0)
         _libssh2_wincng_random(buf, len);
+#else
+    (void)len;
+#endif
 
     if (session)
         LIBSSH2_FREE(session, buf);
@@ -940,6 +948,10 @@ _libssh2_wincng_cipher_dtor(_libssh2_cipher_ctx *ctx)
     BCryptDestroyKey(ctx->hKey);
 
     _libssh2_wincng_mfree(ctx->pbKeyObject, ctx->dwKeyObject);
+
+#ifdef LIBSSH2_MEMORY_OVERWRITE
+    _libssh2_wincng_random(ctx, sizeof(_libssh2_cipher_ctx));
+#endif
 }
 
 
@@ -971,15 +983,36 @@ _libssh2_wincng_bignum_resize(_libssh2_bn *bn, unsigned long length)
     if (length == bn->length)
         return 0;
 
+#ifdef LIBSSH2_MEMORY_OVERWRITE
+    if (length == 0 && bn->bignum && bn->length > 0) {
+        _libssh2_wincng_mfree(bn->bignum, bn->length);
 
+        bn->bignum = NULL;
+        bn->length = 0;
+
+        return 0;
     }
 
+    bignum = malloc(length);
+    if (!bignum)
+        return -1;
+
+    if (bn->bignum) {
+        memcpy(bignum, bn->bignum, min(length, bn->length));
+
+        _libssh2_wincng_mfree(bn->bignum, bn->length);
+    }
+
+    bn->bignum = bignum;
+    bn->length = length;
+#else
     bignum = realloc(bn->bignum, length);
     if (!bignum)
         return -1;
 
     bn->bignum = bignum;
     bn->length = length;
+#endif
 
     return 0;
 }
@@ -1187,6 +1220,7 @@ _libssh2_wincng_bignum_from_bin(_libssh2_bn *bn, unsigned long len,
 
             offset = bn->length - length;
             if (offset > 0) {
+#ifdef LIBSSH2_MEMORY_OVERWRITE
                 bignum = malloc(length);
                 if (bignum) {
                     memcpy(bignum, bn->bignum + offset, length);
@@ -1196,6 +1230,15 @@ _libssh2_wincng_bignum_from_bin(_libssh2_bn *bn, unsigned long len,
                     bn->bignum = bignum;
                     bn->length = length;
                 }
+#else
+                memmove(bn->bignum, bn->bignum + offset, length);
+
+                bignum = realloc(bn->bignum, length);
+                if (bignum) {
+                    bn->bignum = bignum;
+                    bn->length = length;
+                }
+#endif
             }
         }
     }

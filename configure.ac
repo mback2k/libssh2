@@ -181,6 +181,13 @@ if test "$GEX_NEW" != "no"; then
   AC_DEFINE(LIBSSH2_DH_GEX_NEW, 1, [Enable newer diffie-hellman-group-exchange-sha1 syntax])
 fi
 
+AC_ARG_ENABLE(memory-overwrite,
+  AC_HELP_STRING([--disable-memory-overwrite],[Disable memory overwrite before being freed]),
+  [MEMORY_OVERWRITE=$enableval])
+if test "$MEMORY_OVERWRITE" != "no"; then
+  AC_DEFINE(LIBSSH2_MEMORY_OVERWRITE, 1, [Enable memory overwrite before being freed])
+fi
+
 dnl ************************************************************
 dnl option to switch on compiler debug options
 dnl
