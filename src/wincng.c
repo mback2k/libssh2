@@ -40,9 +40,12 @@
 
 #ifdef LIBSSH2_WINCNG /* compile only if we build with wincng */
 
+#ifdef HAVE_MATH_H
 #include <math.h>
+#endif
+#ifdef HAVE_STDLIB_H
 #include <stdlib.h>
-
+#endif
 #ifdef HAVE_LIBCRYPT32
 #include <wincrypt.h>
 #endif

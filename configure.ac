@@ -117,6 +117,9 @@ if test "$ac_cv_libssl" != "yes" && test "$use_wincng" != "no"; then
     #include <windows.h>
     #include <wincrypt.h>
   ])
+  AC_CHECK_HEADERS([ntdef.h ntstatus.h], [], [], [
+    #include <windows.h>
+  ])
 fi
 
 AC_SUBST(LIBSREQUIRED)
@@ -263,7 +266,7 @@ AM_CONDITIONAL([BUILD_EXAMPLES], [test "x$build_examples" != "xno"])
 # AC_HEADER_STDC
 AC_CHECK_HEADERS([errno.h fcntl.h stdio.h stdlib.h unistd.h sys/uio.h])
 AC_CHECK_HEADERS([sys/select.h sys/socket.h sys/ioctl.h sys/time.h])
-AC_CHECK_HEADERS([arpa/inet.h netinet/in.h])
+AC_CHECK_HEADERS([arpa/inet.h netinet/in.h math.h])
 AC_CHECK_HEADERS([sys/un.h], [have_sys_un_h=yes], [have_sys_un_h=no])
 AM_CONDITIONAL([HAVE_SYS_UN_H], test "x$have_sys_un_h" = xyes)
 

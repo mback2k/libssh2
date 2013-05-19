@@ -38,7 +38,17 @@
 
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0600
+
+#ifdef HAVE_WINDOWS_H
+#include <windows.h>
+#endif
+#ifdef HAVE_NTDEF_H
 #include <ntdef.h>
+#endif
+#ifdef HAVE_NTSTATUS_H
+#include <ntstatus.h>
+#endif
+
 #include <bcrypt.h>
 
 
