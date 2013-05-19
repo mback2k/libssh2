@@ -825,6 +825,7 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
         return -1;
     }
 
+
     header = (BCRYPT_KEY_DATA_BLOB_HEADER*) key;
     header->dwMagic = BCRYPT_KEY_DATA_BLOB_MAGIC;
     header->dwVersion = BCRYPT_KEY_DATA_BLOB_VERSION1;
@@ -1033,24 +1034,6 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
     if (!r || !a || !p || !m)
         return -1;
 
-    fprintf(stderr, "a = \n0x");
-    for (offset = 0; offset < a->length; offset++) {
-        fprintf(stderr, "%02x", a->bignum[offset]);
-    }
-    fprintf(stderr, "\n\n");
-
-    fprintf(stderr, "p = \n0x");
-    for (offset = 0; offset < p->length; offset++) {
-        fprintf(stderr, "%02x", p->bignum[offset]);
-    }
-    fprintf(stderr, "\n\n");
-
-    fprintf(stderr, "m = \n0x");
-    for (offset = 0; offset < m->length; offset++) {
-        fprintf(stderr, "%02x", m->bignum[offset]);
-    }
-    fprintf(stderr, "\n\n");
-
     offset = sizeof(BCRYPT_RSAKEY_BLOB);
     keylen = offset + p->length + m->length;
 
@@ -1109,12 +1092,6 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
     }
 
     _libssh2_wincng_mfree(key, keylen);
-
-    fprintf(stderr, "r = \n0x");
-    for (offset = 0; offset < r->length; offset++) {
-        fprintf(stderr, "%02x", r->bignum[offset]);
-    }
-    fprintf(stderr, "\n\n");
 
     return ret == STATUS_SUCCESS ? 0 : -1;
 }
@@ -1240,8 +1217,6 @@ _libssh2_pub_priv_keyfile(LIBSSH2_SESSION *session,
                           const char *privatekey,
                           const char *passphrase)
 {
-    fprintf(stderr, "_libssh2_pub_priv_keyfile\n");
-
     (void)session;
     (void)method;
     (void)method_len;
