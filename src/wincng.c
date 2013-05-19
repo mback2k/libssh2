@@ -220,6 +220,8 @@ _libssh2_wincng_free(void)
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgAES_CBC, 0);
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgRC4_NA, 0);
     BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlg3DES_CBC, 0);
+
+    memset(&_libssh2_wincng, 0, sizeof(_libssh2_wincng));
 }
 
 int
