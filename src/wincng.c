@@ -247,6 +247,33 @@ _libssh2_wincng_random(void *buf, int len)
     return 1;
 }
 
+static void
+_libssh2_wincng_mfree(void *buf, int len)
+{
+    if (!buf)
+        return;
+
+    if (len > 0)
+        _libssh2_wincng_random(buf, len);
+
+    free(buf);
+}
+
+static void
+_libssh2_wincng_sfree(LIBSSH2_SESSION *session, void *buf, int len)
+{
+    if (!buf)
+        return;
+
+    if (len > 0)
+        _libssh2_wincng_random(buf, len);
+
+    if (session)
+        LIBSSH2_FREE(session, buf);
+    else
+        free(buf);
+}
+
 
 /*******************************************************************/
 /*
@@ -294,14 +321,16 @@ _libssh2_wincng_hash_init(_libssh2_wincng_hash_ctx *ctx,
         return 0;
     }
 
+
     ret = BCryptCreateHash(hAlg, &hHash,
                            pbHashObject, dwHashObject,
                            key, keylen, 0);
     if (ret != STATUS_SUCCESS) {
         fprintf(stderr, "BCryptCreateHash error: %08x\n", ret);
-        free(pbHashObject);
+        _libssh2_wincng_mfree(pbHashObject, dwHashObject);
         return 0;
     }
+
 
     ctx->hAlg = hAlg;
     ctx->hHash = hHash;
@@ -345,10 +374,7 @@ _libssh2_wincng_hash_final(_libssh2_wincng_hash_ctx *ctx,
 
     BCryptDestroyHash(ctx->hHash);
 
-    BCryptGenRandom(_libssh2_wincng.hAlgRNG,
-                    ctx->pbHashObject, ctx->dwHashObject, 0);
-
-    free(ctx->pbHashObject);
+    _libssh2_wincng_mfree(ctx->pbHashObject, ctx->dwHashObject);
 
     return 1;
 }
@@ -401,10 +427,7 @@ _libssh2_wincng_hmac_cleanup(_libssh2_wincng_hash_ctx *ctx)
 
     BCryptDestroyHash(ctx->hHash);
 
-    BCryptGenRandom(_libssh2_wincng.hAlgRNG,
-                    ctx->pbHashObject, ctx->dwHashObject, 0);
-
-    free(ctx->pbHashObject);
+    _libssh2_wincng_mfree(ctx->pbHashObject, ctx->dwHashObject);
 }
 
 
@@ -432,6 +455,8 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
                         const unsigned char *coeffdata,
                         unsigned long coefflen)
 {
+    BCRYPT_ALG_HANDLE hAlg;
+    BCRYPT_KEY_HANDLE hKey;
     BCRYPT_RSAKEY_BLOB *rsakey;
     unsigned char *key;
     unsigned long keylen, offset;
@@ -442,8 +467,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     *rsa = malloc(sizeof(struct _libssh2_wincng_key_ctx));
     if (!(*rsa))
         return -1;
-
-    memset(*rsa, 0, sizeof(struct _libssh2_wincng_key_ctx));
 
 
     offset = sizeof(BCRYPT_RSAKEY_BLOB);
@@ -507,20 +530,22 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
         rsakey->cbPrime2 = 0;
     }
 
-    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
 
-    ret = BCryptImportKeyPair((*rsa)->hAlg, NULL,
+    hAlg = _libssh2_wincng.hAlgRSA;
+    ret = BCryptImportKeyPair(hAlg, NULL,
                               ddata ? BCRYPT_RSAFULLPRIVATE_BLOB
                                     : BCRYPT_RSAPUBLIC_BLOB,
-                              &(*rsa)->hKey, key, keylen, 0);
+                              &hKey, key, keylen, 0);
     if (ret != STATUS_SUCCESS) {
         fprintf(stderr, "BCryptImportKeyPair error: %08x\n", ret);
-        BCryptGenRandom(_libssh2_wincng.hAlgRNG, key, keylen, 0);
-        free(key);
+        _libssh2_wincng_mfree(key, keylen);
         free(*rsa);
         return -1;
     }
 
+
+    (*rsa)->hAlg = hAlg;
+    (*rsa)->hKey = hKey;
     (*rsa)->pbKeyObject = key;
     (*rsa)->cbKeyObject = keylen;
 
@@ -548,6 +573,8 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                                 const unsigned char *passphrase)
 {
 #ifdef HAVE_LIBCRYPT32
+    BCRYPT_ALG_HANDLE hAlg;
+    BCRYPT_KEY_HANDLE hKey;
     FILE *fp;
     PBYTE pbEncoded, pvStructInfo;
     DWORD cbEncoded, cbStructInfo;
@@ -561,7 +588,7 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
 
     fp = fopen(filename, "r");
     if (!fp) {
-        fprintf(stderr, "fopen error: %08x\n", errno);
+        fprintf(stderr, "fopen error\n");
         return -1;
     }
 
@@ -582,22 +609,23 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
 
     if (ret != 1) {
         fprintf(stderr, "fread error: %d\n", ret);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
+
 
     ret = CryptStringToBinaryA(data, datalen, CRYPT_STRING_ANY,
                                NULL, &cbEncoded, NULL, NULL);
     if (!ret) {
         fprintf(stderr, "CryptStringToBinaryA 1 error: %08x\n", GetLastError());
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
     pbEncoded = LIBSSH2_ALLOC(session, cbEncoded);
     if (!pbEncoded) {
         fprintf(stderr, "memory allocation error\n");
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
@@ -605,8 +633,8 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                                pbEncoded, &cbEncoded, NULL, NULL);
     if (!ret) {
         fprintf(stderr, "CryptStringToBinaryA 2 error: %08x\n", GetLastError());
-        LIBSSH2_FREE(session, pbEncoded);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
@@ -616,16 +644,16 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                               NULL, &cbStructInfo);
     if (!ret) {
         fprintf(stderr, "CryptDecodeObjectEx 1 error: %08x\n", GetLastError());
-        LIBSSH2_FREE(session, pbEncoded);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
     pvStructInfo = LIBSSH2_ALLOC(session, cbStructInfo);
     if (!pvStructInfo) {
         fprintf(stderr, "memory allocation error\n");
-        LIBSSH2_FREE(session, pbEncoded);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
@@ -635,39 +663,40 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                               pvStructInfo, &cbStructInfo);
     if (!ret) {
         fprintf(stderr, "CryptDecodeObjectEx 2 error: %08x\n", GetLastError());
-        LIBSSH2_FREE(session, pvStructInfo);
-        LIBSSH2_FREE(session, pbEncoded);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, pvStructInfo, cbStructInfo);
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
     *rsa = malloc(sizeof(struct _libssh2_wincng_key_ctx));
     if (!(*rsa)) {
-        LIBSSH2_FREE(session, pvStructInfo);
-        LIBSSH2_FREE(session, pbEncoded);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, pvStructInfo, cbStructInfo);
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
         return -1;
     }
 
-    memset(*rsa, 0, sizeof(struct _libssh2_wincng_key_ctx));
 
-    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
-
-    ret = BCryptImportKeyPair((*rsa)->hAlg, NULL,
-                              LEGACY_RSAPRIVATE_BLOB, &(*rsa)->hKey,
+    hAlg = _libssh2_wincng.hAlgRSA;
+    ret = BCryptImportKeyPair(hAlg, NULL,
+                              LEGACY_RSAPRIVATE_BLOB, &hKey,
                               pvStructInfo, cbStructInfo, 0);
     if (ret != STATUS_SUCCESS) {
         fprintf(stderr, "BCryptImportKeyPair error: %08x\n", ret);
-        LIBSSH2_FREE(session, pvStructInfo);
-        LIBSSH2_FREE(session, pbEncoded);
-        LIBSSH2_FREE(session, data);
+        _libssh2_wincng_sfree(session, pvStructInfo, cbStructInfo);
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
         free(*rsa);
         return -1;
     }
 
-    LIBSSH2_FREE(session, pbEncoded);
-    LIBSSH2_FREE(session, data);
+    _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+    _libssh2_wincng_sfree(session, data, datalen);
 
+
+    (*rsa)->hAlg = hAlg;
+    (*rsa)->hKey = hKey;
     (*rsa)->pbKeyObject = pvStructInfo;
     (*rsa)->cbKeyObject = cbStructInfo;
 
@@ -692,29 +721,64 @@ _libssh2_wincng_rsa_sha1_verify(libssh2_rsa_ctx *rsa,
                                 const unsigned char *m,
                                 unsigned long m_len)
 {
+    BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_PKCS1_PADDING_INFO paddingInfo;
-    unsigned char hash[SHA_DIGEST_LENGTH];
-    int ret, rc = -1;
+    unsigned char *data, *hash;
+    unsigned long datalen, hashlen;
+    int ret;
 
     fprintf(stderr, "_libssh2_wincng_rsa_sha1_verify\n");
 
-    if (_libssh2_wincng_hash((unsigned char *)m, m_len,
-                             _libssh2_wincng.hAlgHashSHA1,
-                             hash, SHA_DIGEST_LENGTH)) {
-        paddingInfo.pszAlgId = BCRYPT_SHA1_ALGORITHM;
-
-        ret = BCryptVerifySignature(rsa->hKey, &paddingInfo,
-                                    hash, SHA_DIGEST_LENGTH,
-                                    (unsigned char *)sig, sig_len,
-                                    BCRYPT_PAD_PKCS1);
-        if (ret == STATUS_SUCCESS) {
-            rc = 0;
-
-        } else
-            fprintf(stderr, "BCryptVerifySignature error: %08x\n", ret);
+    datalen = m_len;
+    data = malloc(datalen);
+    if (!data) {
+        return -1;
     }
 
-    return rc;
+    hashlen = SHA_DIGEST_LENGTH;
+    hash = malloc(hashlen);
+    if (!sig) {
+        free(data);
+        return -1;
+    }
+
+    hAlg = _libssh2_wincng.hAlgHashSHA1;
+
+    memcpy(data, m, datalen);
+
+    ret = _libssh2_wincng_hash(data, datalen, hAlg, hash, hashlen);
+
+    _libssh2_wincng_mfree(data, datalen);
+
+    if (!ret) {
+        _libssh2_wincng_mfree(hash, hashlen);
+        return -1;
+    }
+
+    datalen = sig_len;
+    data = malloc(datalen);
+    if (!data) {
+        _libssh2_wincng_mfree(hash, hashlen);
+        return -1;
+    }
+
+    paddingInfo.pszAlgId = BCRYPT_SHA1_ALGORITHM;
+
+    memcpy(data, sig, datalen);
+
+    ret = BCryptVerifySignature(rsa->hKey, &paddingInfo,
+                                hash, hashlen, data, datalen,
+                                BCRYPT_PAD_PKCS1);
+
+    _libssh2_wincng_mfree(hash, hashlen);
+    _libssh2_wincng_mfree(data, datalen);
+
+    if (ret != STATUS_SUCCESS) {
+        fprintf(stderr, "BCryptVerifySignature error: %08x\n", ret);
+        return -1;
+    }
+
+    return 0;
 }
 
 int
@@ -726,40 +790,46 @@ _libssh2_wincng_rsa_sha1_sign(LIBSSH2_SESSION *session,
                               size_t *signature_len)
 {
     BCRYPT_PKCS1_PADDING_INFO paddingInfo;
-    unsigned long cbData;
+    DWORD cbData;
+    unsigned char *data, *sig;
+    unsigned long datalen, siglen;
     int ret, rc = -1;
 
     fprintf(stderr, "_libssh2_wincng_rsa_sha1_sign\n");
 
-    *signature_len = 0;
+    datalen = hash_len;
+    data = LIBSSH2_ALLOC(session, datalen);
+    if (!data) {
+        return -1;
+    }
 
     paddingInfo.pszAlgId = BCRYPT_SHA1_ALGORITHM;
 
+    memcpy(data, hash, datalen);
+
     ret = BCryptSignHash(rsa->hKey, &paddingInfo,
-                         (unsigned char *)hash, hash_len,
-                         NULL, 0, &cbData, BCRYPT_PAD_PKCS1);
+                         data, datalen, NULL, 0,
+                         &cbData, BCRYPT_PAD_PKCS1);
     if (ret == STATUS_SUCCESS) {
-        *signature = LIBSSH2_ALLOC(session, cbData);
-
-        if (*signature) {
-            *signature_len = cbData;
-
+        siglen = cbData;
+        sig = LIBSSH2_ALLOC(session, siglen);
+        if (sig) {
             ret = BCryptSignHash(rsa->hKey, &paddingInfo,
-                                 (unsigned char *)hash, hash_len,
-                                 *signature, *signature_len,
+                                 data, datalen, sig, siglen,
                                  &cbData, BCRYPT_PAD_PKCS1);
             if (ret == STATUS_SUCCESS) {
+                *signature_len = siglen;
+                *signature = sig;
                 rc = 0;
-
             } else {
                 fprintf(stderr, "BCryptSignHash error: %08x\n", ret);
-                LIBSSH2_FREE(session, *signature);
-                *signature_len = 0;
-                *signature = NULL;
+                _libssh2_wincng_sfree(session, sig, siglen);
             }
         }
     } else
         fprintf(stderr, "BCryptSignHash error: %08x\n", ret);
+
+    _libssh2_wincng_sfree(session, data, datalen);
 
     return rc;
 }
@@ -770,10 +840,9 @@ _libssh2_wincng_rsa_free(libssh2_rsa_ctx *rsa)
     fprintf(stderr, "_libssh2_wincng_rsa_free\n");
 
     BCryptDestroyKey(rsa->hKey);
-    BCryptGenRandom(_libssh2_wincng.hAlgRNG,
-                    rsa->pbKeyObject, rsa->cbKeyObject, 0);
 
-    free(rsa->pbKeyObject);
+    _libssh2_wincng_mfree(rsa->pbKeyObject, rsa->cbKeyObject);
+
     free(rsa);
 }
 
@@ -858,13 +927,11 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
     ret = BCryptImportKey(*type.phAlg, NULL, BCRYPT_KEY_DATA_BLOB, &hKey,
                           pbKeyObject, dwKeyObject, key, keylen, 0);
 
-    BCryptGenRandom(_libssh2_wincng.hAlgRNG, key, keylen, 0);
-    free(key);
+    _libssh2_wincng_mfree(key, keylen);
 
     if (ret != STATUS_SUCCESS) {
         fprintf(stderr, "BCryptImportKey error: %08x\n", ret);
-        BCryptGenRandom(_libssh2_wincng.hAlgRNG, pbKeyObject, dwKeyObject, 0);
-        free(pbKeyObject);
+        _libssh2_wincng_mfree(pbKeyObject, dwKeyObject);
         free(pbIV);
         return -1;
     }
@@ -938,8 +1005,7 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
                 rc = 0;
             }
 
-            BCryptGenRandom(_libssh2_wincng.hAlgRNG, pbOutput, cbOutput, 0);
-            free(pbOutput);
+            _libssh2_wincng_mfree(pbOutput, cbOutput);
         }
     }
 
@@ -954,10 +1020,8 @@ _libssh2_wincng_cipher_dtor(_libssh2_cipher_ctx *ctx)
     fprintf(stderr, "_libssh2_wincng_cipher_dtor\n");
 
     BCryptDestroyKey(ctx->hKey);
-    BCryptGenRandom(_libssh2_wincng.hAlgRNG,
-                    ctx->pbKeyObject, ctx->dwKeyObject, 0);
 
-    free(ctx->pbKeyObject);
+    _libssh2_wincng_mfree(ctx->pbKeyObject, ctx->dwKeyObject);
 }
 
 
@@ -978,6 +1042,30 @@ _libssh2_wincng_bignum_init(void)
     return bignum;
 }
 
+static int
+_libssh2_wincng_bignum_resize(_libssh2_bn *bn, unsigned long length)
+{
+    unsigned char *bignum;
+
+    if (bn->length != length) {
+        bignum = malloc(length);
+        if (bignum) {
+            if (bn->bignum) {
+                memcpy(bignum, bn->bignum, min(length, bn->length));
+
+                _libssh2_wincng_mfree(bn->bignum, bn->length);
+            }
+
+            bn->bignum = bignum;
+            bn->length = length;
+
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 int
 _libssh2_wincng_bignum_rand(_libssh2_bn *rnd, int bits, int top, int bottom)
 {
@@ -987,12 +1075,10 @@ _libssh2_wincng_bignum_rand(_libssh2_bn *rnd, int bits, int top, int bottom)
     fprintf(stderr, "_libssh2_wincng_bignum_rand(%d, %d, %d)\n", bits, top, bottom);
 
     length = ceil((float)bits / 8) * sizeof(unsigned char);
-    bignum = realloc(rnd->bignum, length);
-    if (!bignum)
+    if (!_libssh2_wincng_bignum_resize(rnd, length))
         return 0;
 
-    rnd->bignum = bignum;
-    rnd->length = length;
+    bignum = rnd->bignum;
 
     if (!_libssh2_wincng_random(bignum, length))
         return 0;
@@ -1087,19 +1173,16 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
         ret = BCryptEncrypt(hKey, a->bignum, a->length, NULL, NULL, 0,
                             NULL, 0, &length, BCRYPT_PAD_NONE);
         if (ret == STATUS_SUCCESS) {
-            bignum = realloc(r->bignum, length);
-            if (bignum) {
-                r->bignum = bignum;
-                r->length = length;
-
+            if (_libssh2_wincng_bignum_resize(r, length)) {
                 fprintf(stderr, "r->length %ld\n", r->length);
                 fprintf(stderr, "a->length %ld\n", a->length);
 
                 length = max(a->length, length);
                 bignum = malloc(length);
                 if (bignum) {
-                    memset(bignum, 0, length);
-                    memcpy(bignum + length - a->length, a->bignum, a->length);
+                    offset = length - a->length;
+                    memset(bignum, 0, offset);
+                    memcpy(bignum + offset, a->bignum, a->length);
 
                     fprintf(stderr, "a = \n0x");
                     for (offset = 0; offset < length; offset++) {
@@ -1110,18 +1193,13 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
                     fprintf(stderr, "length %ld\n", length);
 
                     ret = BCryptEncrypt(hKey, bignum, length, NULL, NULL, 0,
-                                        r->bignum, r->length, &r->length,
+                                        r->bignum, r->length, &offset,
                                         BCRYPT_PAD_NONE);
 
-                    BCryptGenRandom(_libssh2_wincng.hAlgRNG,
-                                    bignum, length, 0);
-
-                    free(bignum);
+                    _libssh2_wincng_mfree(bignum, length);
 
                     if (ret == STATUS_SUCCESS) {
-                        bignum = realloc(r->bignum, r->length);
-                        if (bignum)
-                            r->bignum = bignum;
+                        _libssh2_wincng_bignum_resize(r, offset);
 
                         rc  = 1;
 
@@ -1136,9 +1214,7 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
     } else
         fprintf(stderr, "BCryptImportKeyPair error: %08x\n", ret);
 
-    BCryptGenRandom(_libssh2_wincng.hAlgRNG, key, keylen, 0);
-
-    free(key);
+    _libssh2_wincng_mfree(key, keylen);
 
     fprintf(stderr, "r = \n0x");
     for (offset = 0; offset < r->length; offset++) {
@@ -1152,7 +1228,6 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
 int
 _libssh2_wincng_bignum_set_word(_libssh2_bn *bn, unsigned long word)
 {
-    unsigned char *bignum;
     unsigned long offset, number, bits, length;
 
     number = word;
@@ -1160,12 +1235,8 @@ _libssh2_wincng_bignum_set_word(_libssh2_bn *bn, unsigned long word)
         bits++;
 
     length = ceil((double)(bits+1) / 8) * sizeof(unsigned char);
-    bignum = realloc(bn->bignum, length);
-    if (!bignum)
+    if (!_libssh2_wincng_bignum_resize(bn, length))
         return 0;
-
-    bn->bignum = bignum;
-    bn->length = length;
 
     for (offset = 0; offset < length; offset++)
         bn->bignum[offset] = (word >> (offset * 8)) & 0xff;
@@ -1207,11 +1278,7 @@ _libssh2_wincng_bignum_from_bin(_libssh2_bn *bn, unsigned long len,
     fprintf(stderr, "_libssh2_wincng_bignum_from_bin(%ld)\n", len);
 
     if (bn && bin && len > 0) {
-        bignum = realloc(bn->bignum, len);
-        if (bignum) {
-            bn->bignum = bignum;
-            bn->length = len;
-
+        if (_libssh2_wincng_bignum_resize(bn, len)) {
             memcpy(bn->bignum, bin, len);
 
             bits = _libssh2_wincng_bignum_bits(bn);
@@ -1219,16 +1286,16 @@ _libssh2_wincng_bignum_from_bin(_libssh2_bn *bn, unsigned long len,
 
             offset = bn->length - length;
             if (offset > 0) {
-                memmove(bn->bignum, bn->bignum + offset, length);
-
-                bignum = realloc(bn->bignum, length);
+                bignum = malloc(length);
                 if (bignum) {
+                    memcpy(bignum, bn->bignum + offset, length);
+
+                    _libssh2_wincng_random(bn->bignum, bn->length);
+
                     bn->bignum = bignum;
                     bn->length = length;
                 }
             }
-
-            fprintf(stderr, "top %02x\n", bn->bignum[0]);
         }
     }
 }
@@ -1246,7 +1313,7 @@ _libssh2_wincng_bignum_free(_libssh2_bn *bn)
 {
     if (bn) {
         if (bn->bignum) {
-            free(bn->bignum);
+            _libssh2_wincng_mfree(bn->bignum, bn->length);
             bn->bignum = NULL;
         }
         bn->length = 0;
