@@ -91,6 +91,22 @@
 #define BCRYPT_ALG_HANDLE_HMAC_FLAG 0x00000008
 #endif
 
+#ifndef BCRYPT_DSA_PUBLIC_BLOB
+#define BCRYPT_DSA_PUBLIC_BLOB L"DSAPUBLICBLOB"
+#endif
+
+#ifndef BCRYPT_DSA_PUBLIC_MAGIC
+#define BCRYPT_DSA_PUBLIC_MAGIC 0x42505344 /* DSPB */
+#endif
+
+#ifndef BCRYPT_DSA_PRIVATE_BLOB
+#define BCRYPT_DSA_PRIVATE_BLOB L"DSAPRIVATEBLOB"
+#endif
+
+#ifndef BCRYPT_DSA_PRIVATE_MAGIC
+#define BCRYPT_DSA_PRIVATE_MAGIC 0x56505344 /* DSPV */
+#endif
+
 #ifndef BCRYPT_RSAPUBLIC_BLOB
 #define BCRYPT_RSAPUBLIC_BLOB L"RSAPUBLICBLOB"
 #endif
@@ -385,6 +401,75 @@ _libssh2_wincng_hmac_cleanup(_libssh2_wincng_hash_ctx *ctx)
     ctx->hHash = 0;
 
     _libssh2_wincng_mfree(ctx->pbHashObject, ctx->dwHashObject);
+}
+
+
+/*******************************************************************/
+/*
+ * Windows CNG backend: Key functions
+ */
+
+int
+_libssh2_wincng_key_sha1_verify(_libssh2_wincng_key_ctx *ctx,
+                                const unsigned char *sig,
+                                unsigned long sig_len,
+                                const unsigned char *m,
+                                unsigned long m_len,
+                                unsigned long flags)
+{
+    BCRYPT_PKCS1_PADDING_INFO paddingInfoPKCS1;
+    VOID *pPaddingInfo;
+    unsigned char *data, *hash;
+    unsigned long datalen, hashlen;
+    int ret;
+
+    datalen = m_len;
+    data = malloc(datalen);
+    if (!data) {
+        return -1;
+    }
+
+    hashlen = SHA_DIGEST_LENGTH;
+    hash = malloc(hashlen);
+    if (!hash) {
+        free(data);
+        return -1;
+    }
+
+    memcpy(data, m, datalen);
+
+    ret = _libssh2_wincng_hash(data, datalen,
+                               _libssh2_wincng.hAlgHashSHA1,
+                               hash, hashlen);
+
+    _libssh2_wincng_mfree(data, datalen);
+
+    if (ret) {
+        _libssh2_wincng_mfree(hash, hashlen);
+        return -1;
+    }
+
+    datalen = sig_len;
+    data = malloc(datalen);
+    if (!data) {
+        _libssh2_wincng_mfree(hash, hashlen);
+        return -1;
+    }
+
+    if (flags & BCRYPT_PAD_PKCS1) {
+        paddingInfoPKCS1.pszAlgId = BCRYPT_SHA1_ALGORITHM;
+        pPaddingInfo = &paddingInfoPKCS1;
+    }
+
+    memcpy(data, sig, datalen);
+
+    ret = BCryptVerifySignature(ctx->hKey, pPaddingInfo,
+                                hash, hashlen, data, datalen, flags);
+
+    _libssh2_wincng_mfree(hash, hashlen);
+    _libssh2_wincng_mfree(data, datalen);
+
+    return ret == STATUS_SUCCESS ? 0 : -1;
 }
 
 
@@ -690,56 +775,8 @@ _libssh2_wincng_rsa_sha1_verify(libssh2_rsa_ctx *rsa,
                                 const unsigned char *m,
                                 unsigned long m_len)
 {
-    BCRYPT_PKCS1_PADDING_INFO paddingInfo;
-    unsigned char *data, *hash;
-    unsigned long datalen, hashlen;
-    int ret;
-
-    datalen = m_len;
-    data = malloc(datalen);
-    if (!data) {
-        return -1;
-    }
-
-    hashlen = SHA_DIGEST_LENGTH;
-    hash = malloc(hashlen);
-    if (!sig) {
-        free(data);
-        return -1;
-    }
-
-    memcpy(data, m, datalen);
-
-    ret = _libssh2_wincng_hash(data, datalen,
-                               _libssh2_wincng.hAlgHashSHA1,
-                               hash, hashlen);
-
-    _libssh2_wincng_mfree(data, datalen);
-
-    if (ret) {
-        _libssh2_wincng_mfree(hash, hashlen);
-        return -1;
-    }
-
-    datalen = sig_len;
-    data = malloc(datalen);
-    if (!data) {
-        _libssh2_wincng_mfree(hash, hashlen);
-        return -1;
-    }
-
-    paddingInfo.pszAlgId = BCRYPT_SHA1_ALGORITHM;
-
-    memcpy(data, sig, datalen);
-
-    ret = BCryptVerifySignature(rsa->hKey, &paddingInfo,
-                                hash, hashlen, data, datalen,
-                                BCRYPT_PAD_PKCS1);
-
-    _libssh2_wincng_mfree(hash, hashlen);
-    _libssh2_wincng_mfree(data, datalen);
-
-    return ret == STATUS_SUCCESS ? 0 : -1;
+    return _libssh2_wincng_key_sha1_verify(rsa, sig, sig_len, m, m_len,
+                                           BCRYPT_PAD_PKCS1);
 }
 
 int
@@ -799,6 +836,204 @@ _libssh2_wincng_rsa_free(libssh2_rsa_ctx *rsa)
     _libssh2_wincng_mfree(rsa->pbKeyObject, rsa->cbKeyObject);
     _libssh2_wincng_mfree(rsa, sizeof(libssh2_rsa_ctx));
 }
+
+
+/*******************************************************************/
+/*
+ * Windows CNG backend: DSA functions
+ */
+
+#if LIBSSH2_DSA
+int
+_libssh2_wincng_dsa_new(libssh2_dsa_ctx **dsa,
+                        const unsigned char *pdata,
+                        unsigned long plen,
+                        const unsigned char *qdata,
+                        unsigned long qlen,
+                        const unsigned char *gdata,
+                        unsigned long glen,
+                        const unsigned char *ydata,
+                        unsigned long ylen,
+                        const unsigned char *xdata,
+                        unsigned long xlen)
+{
+    BCRYPT_KEY_HANDLE hKey;
+    BCRYPT_DSA_KEY_BLOB *dsakey;
+    LPCWSTR lpszBlobType;
+    unsigned char *key;
+    unsigned long keylen, offset, length;
+    int ret;
+
+    offset = 0;
+    while (!*(ydata + offset))
+        offset++;
+
+    length = ylen - offset;
+    offset = sizeof(BCRYPT_DSA_KEY_BLOB);
+
+    keylen = offset + length * 3;
+    if (xdata && xlen > 0)
+        keylen += 20;
+
+    key = malloc(keylen);
+    if (!key) {
+        return -1;
+    }
+
+    memset(key, 0, keylen);
+
+
+    /* http://msdn.microsoft.com/library/windows/desktop/aa833126.aspx */
+    dsakey = (BCRYPT_DSA_KEY_BLOB *)key;
+    dsakey->cbKey = length;
+
+    memset(dsakey->Count, -1, sizeof(dsakey->Count));
+    memset(dsakey->Seed, -1, sizeof(dsakey->Seed));
+
+    if (qlen < 20)
+        memcpy(dsakey->q + 20 - qlen, qdata, qlen);
+    else
+        memcpy(dsakey->q, qdata + qlen - 20, 20);
+
+    if (plen < length)
+        memcpy(key + offset + length - plen, pdata, plen);
+    else
+        memcpy(key + offset, pdata + plen - length, length);
+    offset += length;
+
+    if (glen < length)
+        memcpy(key + offset + length - glen, gdata, glen);
+    else
+        memcpy(key + offset, gdata + glen - length, length);
+    offset += length;
+
+    if (ylen < length)
+        memcpy(key + offset + length - ylen, ydata, ylen);
+    else
+        memcpy(key + offset, ydata + ylen - length, length);
+
+    if (xdata && xlen > 0) {
+        offset += length;
+
+        if (xlen < 20)
+            memcpy(key + offset + 20 - xlen, xdata, xlen);
+        else
+            memcpy(key + offset, xdata + xlen - 20, 20);
+
+        lpszBlobType = BCRYPT_DSA_PRIVATE_BLOB;
+        dsakey->dwMagic = BCRYPT_DSA_PRIVATE_MAGIC;
+    } else {
+        lpszBlobType = BCRYPT_DSA_PUBLIC_BLOB;
+        dsakey->dwMagic = BCRYPT_DSA_PUBLIC_MAGIC;
+    }
+
+
+    ret = BCryptImportKeyPair(_libssh2_wincng.hAlgDSA, NULL, lpszBlobType,
+                              &hKey, key, keylen, 0);
+    if (ret != STATUS_SUCCESS) {
+        _libssh2_wincng_mfree(key, keylen);
+        return -1;
+    }
+
+
+    *dsa = malloc(sizeof(libssh2_dsa_ctx));
+    if (!(*dsa)) {
+        BCryptDestroyKey(hKey);
+        _libssh2_wincng_mfree(key, keylen);
+        return -1;
+    }
+
+    (*dsa)->hKey = hKey;
+    (*dsa)->pbKeyObject = key;
+    (*dsa)->cbKeyObject = keylen;
+
+    return 0;
+}
+
+int
+_libssh2_wincng_dsa_new_private(libssh2_dsa_ctx **dsa,
+                                LIBSSH2_SESSION * session,
+                                const char *filename,
+                                unsigned const char *passphrase)
+{
+    (void)dsa;
+    (void)session;
+    (void)filename;
+    (void)passphrase;
+
+    return _libssh2_error(session, LIBSSH2_ERROR_FILE,
+                          "Unable to load DSA key from private key file: "
+                          "Method unsupported in Windows CNG backend");
+}
+
+int
+_libssh2_wincng_dsa_sha1_verify(libssh2_dsa_ctx *dsa,
+                                const unsigned char *sig_fixed,
+                                const unsigned char *m,
+                                unsigned long m_len)
+{
+    return _libssh2_wincng_key_sha1_verify(dsa, sig_fixed, 40, m, m_len, 0);
+}
+
+int
+_libssh2_wincng_dsa_sha1_sign(libssh2_dsa_ctx *dsa,
+                              const unsigned char *hash,
+                              unsigned long hash_len,
+                              unsigned char *sig_fixed)
+{
+    BCRYPT_PKCS1_PADDING_INFO paddingInfo;
+    DWORD cbData;
+    unsigned char *data, *sig;
+    unsigned long datalen, siglen;
+    int ret;
+
+    datalen = hash_len;
+    data = malloc(datalen);
+    if (!data) {
+        return -1;
+    }
+
+    paddingInfo.pszAlgId = BCRYPT_SHA1_ALGORITHM;
+
+    memcpy(data, hash, datalen);
+
+    ret = BCryptSignHash(dsa->hKey, &paddingInfo,
+                         data, datalen, NULL, 0,
+                         &cbData, BCRYPT_PAD_PKCS1);
+    if (ret == STATUS_SUCCESS) {
+        siglen = cbData;
+        fprintf(stderr, "siglen = %d\n", siglen);
+        if (siglen == 40) {
+            sig = malloc(siglen);
+            if (sig) {
+                ret = BCryptSignHash(dsa->hKey, &paddingInfo,
+                                     data, datalen, sig, siglen,
+                                     &cbData, BCRYPT_PAD_PKCS1);
+                if (ret == STATUS_SUCCESS) {
+                    memcpy(sig_fixed, sig, siglen);
+                }
+
+                _libssh2_wincng_mfree(sig, siglen);
+            } else
+                ret = STATUS_NO_MEMORY;
+        } else
+            ret = STATUS_NO_MEMORY;
+    }
+
+    _libssh2_wincng_mfree(data, datalen);
+
+    return ret == STATUS_SUCCESS ? 0 : -1;
+}
+
+void
+_libssh2_wincng_dsa_free(libssh2_dsa_ctx *dsa)
+{
+    BCryptDestroyKey(dsa->hKey);
+
+    _libssh2_wincng_mfree(dsa->pbKeyObject, dsa->cbKeyObject);
+    _libssh2_wincng_mfree(dsa, sizeof(libssh2_dsa_ctx));
+}
+#endif
 
 
 /*******************************************************************/

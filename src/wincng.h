@@ -64,7 +64,7 @@
 #define LIBSSH2_3DES 1
 
 #define LIBSSH2_RSA 1
-#define LIBSSH2_DSA 0
+#define LIBSSH2_DSA 1
 
 #define MD5_DIGEST_LENGTH 16
 #define SHA_DIGEST_LENGTH 20
@@ -182,11 +182,13 @@ struct _libssh2_wincng_key_ctx {
     ULONG cbKeyObject;
 };
 
+#define _libssh2_wincng_key_ctx struct _libssh2_wincng_key_ctx
+
 /*
  * Windows CNG backend: RSA functions
  */
 
-#define libssh2_rsa_ctx struct _libssh2_wincng_key_ctx
+#define libssh2_rsa_ctx _libssh2_wincng_key_ctx
 #define _libssh2_rsa_new(rsactx, e, e_len, n, n_len, \
                          d, d_len, p, p_len, q, q_len, \
                          e1, e1_len, e2, e2_len, c, c_len) \
@@ -203,15 +205,22 @@ struct _libssh2_wincng_key_ctx {
   _libssh2_wincng_rsa_free(rsactx)
 
 /*
- * Windows CNG backend: DSA is not implemented yet
+ * Windows CNG backend: DSA functions
  */
 
-#define libssh2_dsa_ctx /* not supported */
+#define libssh2_dsa_ctx _libssh2_wincng_key_ctx
 #define _libssh2_dsa_new(dsactx, p, p_len, q, q_len, \
-                         g, g_len, y, y_len, x, x_len)
-#define _libssh2_dsa_sha1_sign(dsactx, hash, hash_len, sig)
-#define _libssh2_dsa_sha1_verify(dsactx, sig, m, m_len)
-#define _libssh2_dsa_free(dsactx)
+                         g, g_len, y, y_len, x, x_len) \
+  _libssh2_wincng_dsa_new(dsactx, p, p_len, q, q_len, \
+                          g, g_len, y, y_len, x, x_len)
+#define _libssh2_dsa_new_private(rsactx, s, filename, passphrase) \
+  _libssh2_wincng_dsa_new_private(rsactx, s, filename, passphrase)
+#define _libssh2_dsa_sha1_sign(dsactx, hash, hash_len, sig) \
+  _libssh2_wincng_dsa_sha1_sign(dsactx, hash, hash_len, sig)
+#define _libssh2_dsa_sha1_verify(dsactx, sig, m, m_len) \
+  _libssh2_wincng_dsa_sha1_verify(dsactx, sig, m, m_len)
+#define _libssh2_dsa_free(dsactx) \
+  _libssh2_wincng_dsa_free(dsactx)
 
 /*
  * Windows CNG backend: Key functions
