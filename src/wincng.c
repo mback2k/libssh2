@@ -420,11 +420,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     unsigned long keylen, offset;
     int ret;
 
-    *rsa = malloc(sizeof(libssh2_rsa_ctx));
-    if (!(*rsa))
-        return -1;
-
-
     offset = sizeof(BCRYPT_RSAKEY_BLOB);
     keylen = offset + elen + nlen;
     if (ddata)
@@ -432,7 +427,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
 
     key = malloc(keylen);
     if (!key) {
-        free(*rsa);
         return -1;
     }
 
@@ -486,10 +480,16 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
                               &hKey, key, keylen, 0);
     if (ret != STATUS_SUCCESS) {
         _libssh2_wincng_mfree(key, keylen);
-        free(*rsa);
         return -1;
     }
 
+
+    *rsa = malloc(sizeof(libssh2_rsa_ctx));
+    if (!(*rsa)) {
+        BCryptDestroyKey(hKey);
+        _libssh2_wincng_mfree(key, keylen);
+        return -1;
+    }
 
     (*rsa)->hAlg = hAlg;
     (*rsa)->hKey = hKey;
