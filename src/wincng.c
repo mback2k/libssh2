@@ -430,7 +430,7 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
 
 
     /* http://msdn.microsoft.com/library/windows/desktop/aa375531.aspx */
-    rsakey = (BCRYPT_RSAKEY_BLOB*) key;
+    rsakey = (BCRYPT_RSAKEY_BLOB *)key;
     rsakey->BitLength = nlen * 8;
     rsakey->cbPublicExp = elen;
     rsakey->cbModulus = nlen;
@@ -1015,7 +1015,7 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
     }
 
 
-    header = (BCRYPT_KEY_DATA_BLOB_HEADER*) key;
+    header = (BCRYPT_KEY_DATA_BLOB_HEADER *)key;
     header->dwMagic = BCRYPT_KEY_DATA_BLOB_MAGIC;
     header->dwVersion = BCRYPT_KEY_DATA_BLOB_VERSION1;
     header->cbKeyData = type.dwKeyLength;
@@ -1241,7 +1241,7 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
 
 
     /* http://msdn.microsoft.com/library/windows/desktop/aa375531.aspx */
-    rsakey = (BCRYPT_RSAKEY_BLOB*) key;
+    rsakey = (BCRYPT_RSAKEY_BLOB *)key;
     rsakey->Magic = BCRYPT_RSAPUBLIC_MAGIC;
     rsakey->BitLength = m->length * 8;
     rsakey->cbPublicExp = p->length;
