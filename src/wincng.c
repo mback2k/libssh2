@@ -414,13 +414,14 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
 {
     BCRYPT_KEY_HANDLE hKey;
     BCRYPT_RSAKEY_BLOB *rsakey;
+    LPCWSTR lpszBlobType;
     unsigned char *key;
     unsigned long keylen, offset;
     int ret;
 
     offset = sizeof(BCRYPT_RSAKEY_BLOB);
     keylen = offset + elen + nlen;
-    if (ddata)
+    if (ddata && dlen > 0)
         keylen += plen + qlen + e1len + e2len + coefflen + dlen;
 
     key = malloc(keylen);
@@ -440,12 +441,8 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
 
     memcpy(key + offset, ndata, nlen);
 
-    if (ddata) {
+    if (ddata && dlen > 0) {
         offset += nlen;
-
-        rsakey->Magic = BCRYPT_RSAFULLPRIVATE_MAGIC;
-        rsakey->cbPrime1 = plen;
-        rsakey->cbPrime2 = qlen;
 
         memcpy(key + offset, pdata, plen);
         offset += plen;
@@ -464,16 +461,19 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
 
         memcpy(key + offset, ddata, dlen);
 
+        lpszBlobType = BCRYPT_RSAFULLPRIVATE_BLOB;
+        rsakey->Magic = BCRYPT_RSAFULLPRIVATE_MAGIC;
+        rsakey->cbPrime1 = plen;
+        rsakey->cbPrime2 = qlen;
     } else {
+        lpszBlobType = BCRYPT_RSAPUBLIC_BLOB;
         rsakey->Magic = BCRYPT_RSAPUBLIC_MAGIC;
         rsakey->cbPrime1 = 0;
         rsakey->cbPrime2 = 0;
     }
 
 
-    ret = BCryptImportKeyPair(_libssh2_wincng.hAlgRSA, NULL,
-                              ddata ? BCRYPT_RSAFULLPRIVATE_BLOB
-                                    : BCRYPT_RSAPUBLIC_BLOB,
+    ret = BCryptImportKeyPair(_libssh2_wincng.hAlgRSA, NULL, lpszBlobType,
                               &hKey, key, keylen, 0);
     if (ret != STATUS_SUCCESS) {
         _libssh2_wincng_mfree(key, keylen);
@@ -799,6 +799,12 @@ _libssh2_wincng_rsa_free(libssh2_rsa_ctx *rsa)
     _libssh2_wincng_mfree(rsa->pbKeyObject, rsa->cbKeyObject);
     _libssh2_wincng_mfree(rsa, sizeof(libssh2_rsa_ctx));
 }
+
+
+/*******************************************************************/
+/*
+ * Windows CNG backend: Key functions
+ */
 
 #ifdef HAVE_LIBCRYPT32
 static int

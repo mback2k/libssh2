@@ -213,6 +213,9 @@ struct _libssh2_wincng_key_ctx {
 #define _libssh2_dsa_sha1_verify(dsactx, sig, m, m_len)
 #define _libssh2_dsa_free(dsactx)
 
+/*
+ * Windows CNG backend: Key functions
+ */
 
 #define _libssh2_pub_priv_keyfile(s, m, m_len, p, p_len, pk, pw) \
   _libssh2_wincng_pub_priv_keyfile(s, m, m_len, p, p_len, pk, pw)
