@@ -53,7 +53,7 @@
 
 /*******************************************************************/
 /*
- * Windows CNG backend: Missing definitions
+ * Windows CNG backend: Missing definitions (for MinGW[-w64])
  */
 #ifndef BCRYPT_RNG_ALGORITHM
 #define BCRYPT_RNG_ALGORITHM L"RNG"
