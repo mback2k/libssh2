@@ -114,7 +114,6 @@ void _libssh2_wincng_free(void);
  */
 
 struct _libssh2_wincng_hash_ctx {
-    BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_HASH_HANDLE hHash;
     PBYTE pbHashObject;
     DWORD dwHashObject;

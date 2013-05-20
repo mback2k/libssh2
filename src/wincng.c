@@ -314,7 +314,6 @@ _libssh2_wincng_hash_init(_libssh2_wincng_hash_ctx *ctx,
     }
 
 
-    ctx->hAlg = hAlg;
     ctx->hHash = hHash;
     ctx->pbHashObject = pbHashObject;
     ctx->dwHashObject = dwHashObject;
