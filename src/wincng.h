@@ -216,6 +216,10 @@ struct _libssh2_wincng_key_ctx {
 #define _libssh2_dsa_free(dsactx)
 
 
+#define _libssh2_pub_priv_keyfile(s, m, m_len, p, p_len, pk, pw) \
+  _libssh2_wincng_pub_priv_keyfile(s, m, m_len, p, p_len, pk, pw)
+
+
 /*******************************************************************/
 /*
  * Windows CNG backend: Cipher Context structure
