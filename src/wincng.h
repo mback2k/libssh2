@@ -225,11 +225,11 @@ struct _libssh2_wincng_key_ctx {
  */
 
 struct _libssh2_wincng_cipher_ctx {
-    BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_KEY_HANDLE hKey;
-    PBYTE pbIV;
     PBYTE pbKeyObject;
+    PBYTE pbIV;
     DWORD dwKeyObject;
+    DWORD dwIV;
     DWORD dwBlockLength;
 };
 

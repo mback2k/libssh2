@@ -979,10 +979,10 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
     BCRYPT_KEY_HANDLE hKey;
     BCRYPT_KEY_DATA_BLOB_HEADER *header;
     PBYTE pbKeyObject, pbIV;
-    DWORD dwKeyObject, dwBlockLength;
+    DWORD dwKeyObject, dwIV, dwBlockLength;
     ULONG cbData;
     unsigned char *key;
-    unsigned long keylen, offset;
+    unsigned long keylen;
     int ret;
 
     (void)encrypt;
@@ -1008,20 +1008,11 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
         return -1;
     }
 
-    pbIV = malloc(dwBlockLength);
-    if (!pbIV) {
-        free(pbKeyObject);
-        return -1;
-    }
 
-
-    offset = sizeof(BCRYPT_KEY_DATA_BLOB_HEADER);
-    keylen = offset + type.dwKeyLength;
-
+    keylen = sizeof(BCRYPT_KEY_DATA_BLOB_HEADER) + type.dwKeyLength;
     key = malloc(keylen);
     if (!key) {
         free(pbKeyObject);
-        free(pbIV);
         return -1;
     }
 
@@ -1031,8 +1022,8 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
     header->dwVersion = BCRYPT_KEY_DATA_BLOB_VERSION1;
     header->cbKeyData = type.dwKeyLength;
 
-    memcpy(key + offset, secret, type.dwKeyLength);
-    offset += type.dwKeyLength;
+    memcpy(key + sizeof(BCRYPT_KEY_DATA_BLOB_HEADER),
+           secret, type.dwKeyLength);
 
     ret = BCryptImportKey(*type.phAlg, NULL, BCRYPT_KEY_DATA_BLOB, &hKey,
                           pbKeyObject, dwKeyObject, key, keylen, 0);
@@ -1041,18 +1032,29 @@ _libssh2_wincng_cipher_init(_libssh2_cipher_ctx *ctx,
 
     if (ret != STATUS_SUCCESS) {
         _libssh2_wincng_mfree(pbKeyObject, dwKeyObject);
-        free(pbIV);
         return -1;
     }
 
+    if (type.dwUseIV) {
+        pbIV = malloc(dwBlockLength);
+        if (!pbIV) {
+            BCryptDestroyKey(hKey);
+            _libssh2_wincng_mfree(pbKeyObject, dwKeyObject);
+            return -1;
+        }
+        dwIV = dwBlockLength;
+        memcpy(pbIV, iv, dwIV);
+    } else {
+        pbIV = NULL;
+        dwIV = 0;
+    }
 
-    memcpy(pbIV, iv, dwBlockLength);
 
-    ctx->hAlg = *type.phAlg;
     ctx->hKey = hKey;
-    ctx->pbIV = pbIV;
     ctx->pbKeyObject = pbKeyObject;
+    ctx->pbIV = pbIV;
     ctx->dwKeyObject = dwKeyObject;
+    ctx->dwIV = dwIV;
     ctx->dwBlockLength = dwBlockLength;
 
     return 0;
@@ -1065,34 +1067,30 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
                              unsigned char *block,
                              size_t blocklen)
 {
-    PBYTE pbIV, pbOutput;
-    ULONG cbIV, cbOutput;
+    PBYTE pbOutput;
+    ULONG cbOutput;
     int ret;
 
-    if (type.dwUseIV) {
-        pbIV = ctx->pbIV;
-        cbIV = ctx->dwBlockLength;
-    } else {
-        pbIV = NULL;
-        cbIV = 0;
-    }
+    (void)type;
 
     if (encrypt) {
         ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
-                            pbIV, cbIV, NULL, 0, &cbOutput, 0);
+                            ctx->pbIV, ctx->dwIV, NULL, 0, &cbOutput, 0);
     } else {
         ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
-                            pbIV, cbIV, NULL, 0, &cbOutput, 0);
+                            ctx->pbIV, ctx->dwIV, NULL, 0, &cbOutput, 0);
     }
     if (ret == STATUS_SUCCESS) {
         pbOutput = malloc(cbOutput);
         if (pbOutput) {
             if (encrypt) {
-                ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL, pbIV,
-                                    cbIV, pbOutput, cbOutput, &cbOutput, 0);
+                ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
+                                    ctx->pbIV, ctx->dwIV,
+                                    pbOutput, cbOutput, &cbOutput, 0);
             } else {
-                ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL, pbIV,
-                                    cbIV, pbOutput, cbOutput, &cbOutput, 0);
+                ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
+                                    ctx->pbIV, ctx->dwIV,
+                                    pbOutput, cbOutput, &cbOutput, 0);
             }
             if (ret == STATUS_SUCCESS) {
                 memcpy(block, pbOutput, cbOutput);
