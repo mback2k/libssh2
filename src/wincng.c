@@ -867,32 +867,34 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
                              unsigned char *block,
                              size_t blocklen)
 {
-    PBYTE pbOutput;
-    ULONG cbOutput;
+    PBYTE pbIV, pbOutput;
+    ULONG cbIV, cbOutput;
     int ret;
 
-    (void)type;
+    if (type.dwUseIV) {
+        pbIV = ctx->pbIV;
+        cbIV = ctx->dwBlockLength;
+    } else {
+        pbIV = NULL;
+        cbIV = 0;
+    }
 
     if (encrypt) {
         ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
-                            ctx->pbIV, ctx->dwBlockLength,
-                            NULL, 0, &cbOutput, 0);
+                            pbIV, cbIV, NULL, 0, &cbOutput, 0);
     } else {
         ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
-                            ctx->pbIV, ctx->dwBlockLength,
-                            NULL, 0, &cbOutput, 0);
+                            pbIV, cbIV, NULL, 0, &cbOutput, 0);
     }
     if (ret == STATUS_SUCCESS) {
         pbOutput = malloc(cbOutput);
         if (pbOutput) {
             if (encrypt) {
-                ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
-                                    ctx->pbIV, ctx->dwBlockLength,
-                                    pbOutput, cbOutput, &cbOutput, 0);
+                ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL, pbIV,
+                                    cbIV, pbOutput, cbOutput, &cbOutput, 0);
             } else {
-                ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
-                                    ctx->pbIV, ctx->dwBlockLength,
-                                    pbOutput, cbOutput, &cbOutput, 0);
+                ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL, pbIV,
+                                    cbIV, pbOutput, cbOutput, &cbOutput, 0);
             }
             if (ret == STATUS_SUCCESS) {
                 memcpy(block, pbOutput, cbOutput);

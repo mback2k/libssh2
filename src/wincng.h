@@ -236,20 +236,21 @@ struct _libssh2_wincng_cipher_ctx {
 struct _libssh2_wincng_cipher_type {
     BCRYPT_ALG_HANDLE *phAlg;
     DWORD dwKeyLength;
+    DWORD dwUseIV;
 };
 
 #define _libssh2_cipher_type(type) struct _libssh2_wincng_cipher_type type
 
-#define _libssh2_cipher_aes256ctr { NULL, 32 }
-#define _libssh2_cipher_aes192ctr { NULL, 24 }
-#define _libssh2_cipher_aes128ctr { NULL, 16 }
-#define _libssh2_cipher_aes256 { &_libssh2_wincng.hAlgAES_CBC, 32 }
-#define _libssh2_cipher_aes192 { &_libssh2_wincng.hAlgAES_CBC, 24 }
-#define _libssh2_cipher_aes128 { &_libssh2_wincng.hAlgAES_CBC, 16 }
+#define _libssh2_cipher_aes256ctr { NULL, 32, 1 }
+#define _libssh2_cipher_aes192ctr { NULL, 24, 1 }
+#define _libssh2_cipher_aes128ctr { NULL, 16, 1 }
+#define _libssh2_cipher_aes256 { &_libssh2_wincng.hAlgAES_CBC, 32, 1 }
+#define _libssh2_cipher_aes192 { &_libssh2_wincng.hAlgAES_CBC, 24, 1 }
+#define _libssh2_cipher_aes128 { &_libssh2_wincng.hAlgAES_CBC, 16, 1 }
 #define _libssh2_cipher_blowfish /* not supported */
-#define _libssh2_cipher_arcfour { &_libssh2_wincng.hAlgRC4_NA, 0 }
+#define _libssh2_cipher_arcfour { &_libssh2_wincng.hAlgRC4_NA, 16, 0 }
 #define _libssh2_cipher_cast5  /* not supported */
-#define _libssh2_cipher_3des { &_libssh2_wincng.hAlg3DES_CBC, 24 }
+#define _libssh2_cipher_3des { &_libssh2_wincng.hAlg3DES_CBC, 24, 1 }
 
 /*
  * Windows CNG backend: Cipher functions
