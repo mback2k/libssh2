@@ -96,6 +96,9 @@ struct _libssh2_wincng_ctx _libssh2_wincng;
  * Windows CNG backend: Generic functions
  */
 
+void _libssh2_wincng_init(void);
+void _libssh2_wincng_free(void);
+
 #define libssh2_crypto_init() \
   _libssh2_wincng_init()
 #define libssh2_crypto_exit() \

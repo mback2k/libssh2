@@ -148,7 +148,7 @@
 #endif
 
 #ifndef PKCS_RSA_PRIVATE_KEY
-#define PKCS_RSA_PRIVATE_KEY (LPCSTR) 43
+#define PKCS_RSA_PRIVATE_KEY (LPCSTR)43
 #endif
 
 
@@ -413,7 +413,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
                         const unsigned char *coeffdata,
                         unsigned long coefflen)
 {
-    BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_KEY_HANDLE hKey;
     BCRYPT_RSAKEY_BLOB *rsakey;
     unsigned char *key;
@@ -441,9 +440,10 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     offset += elen;
 
     memcpy(key + offset, ndata, nlen);
-    offset += nlen;
 
     if (ddata) {
+        offset += nlen;
+
         rsakey->Magic = BCRYPT_RSAFULLPRIVATE_MAGIC;
         rsakey->cbPrime1 = plen;
         rsakey->cbPrime2 = qlen;
@@ -464,7 +464,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
         offset += coefflen;
 
         memcpy(key + offset, ddata, dlen);
-        offset += dlen;
 
     } else {
         rsakey->Magic = BCRYPT_RSAPUBLIC_MAGIC;
@@ -473,8 +472,7 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     }
 
 
-    hAlg = _libssh2_wincng.hAlgRSA;
-    ret = BCryptImportKeyPair(hAlg, NULL,
+    ret = BCryptImportKeyPair(_libssh2_wincng.hAlgRSA, NULL,
                               ddata ? BCRYPT_RSAFULLPRIVATE_BLOB
                                     : BCRYPT_RSAPUBLIC_BLOB,
                               &hKey, key, keylen, 0);
@@ -491,7 +489,7 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
         return -1;
     }
 
-    (*rsa)->hAlg = hAlg;
+    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
     (*rsa)->hKey = hKey;
     (*rsa)->pbKeyObject = key;
     (*rsa)->cbKeyObject = keylen;
@@ -654,7 +652,6 @@ _libssh2_wincng_rsa_sha1_verify(libssh2_rsa_ctx *rsa,
                                 const unsigned char *m,
                                 unsigned long m_len)
 {
-    BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_PKCS1_PADDING_INFO paddingInfo;
     unsigned char *data, *hash;
     unsigned long datalen, hashlen;
@@ -673,11 +670,11 @@ _libssh2_wincng_rsa_sha1_verify(libssh2_rsa_ctx *rsa,
         return -1;
     }
 
-    hAlg = _libssh2_wincng.hAlgHashSHA1;
-
     memcpy(data, m, datalen);
 
-    ret = _libssh2_wincng_hash(data, datalen, hAlg, hash, hashlen);
+    ret = _libssh2_wincng_hash(data, datalen,
+                               _libssh2_wincng.hAlgHashSHA1,
+                               hash, hashlen);
 
     _libssh2_wincng_mfree(data, datalen);
 
@@ -1059,7 +1056,6 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
     offset += p->length;
 
     memcpy(key + offset, m->bignum, m->length);
-    offset += m->length;
 
     ret = BCryptImportKeyPair(_libssh2_wincng.hAlgRSA, NULL,
                               BCRYPT_RSAPUBLIC_BLOB, &hKey, key, keylen,
