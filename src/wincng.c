@@ -488,7 +488,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
         return -1;
     }
 
-    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
     (*rsa)->hKey = hKey;
     (*rsa)->pbKeyObject = key;
     (*rsa)->cbKeyObject = keylen;
@@ -667,7 +666,6 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
         return -1;
     }
 
-    (*rsa)->hAlg = _libssh2_wincng.hAlgRSA;
     (*rsa)->hKey = hKey;
     (*rsa)->pbKeyObject = pbStructInfo;
     (*rsa)->cbKeyObject = cbStructInfo;

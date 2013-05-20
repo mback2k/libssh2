@@ -177,7 +177,6 @@ struct _libssh2_wincng_hash_ctx {
  */
 
 struct _libssh2_wincng_key_ctx {
-    BCRYPT_ALG_HANDLE hAlg;
     BCRYPT_KEY_HANDLE hKey;
     PBYTE pbKeyObject;
     ULONG cbKeyObject;
