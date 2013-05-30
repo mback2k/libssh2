@@ -501,55 +501,82 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     BCRYPT_RSAKEY_BLOB *rsakey;
     LPCWSTR lpszBlobType;
     unsigned char *key;
-    unsigned long keylen, offset;
+    unsigned long keylen, offset, mlen, p1len, p2len;
     int ret;
 
+    mlen = max(nlen, dlen);
     offset = sizeof(BCRYPT_RSAKEY_BLOB);
-    keylen = offset + elen + nlen;
-    if (ddata && dlen > 0)
-        keylen += plen + qlen + e1len + e2len + coefflen + dlen;
+    keylen = offset + elen + mlen;
+    if (ddata && dlen > 0) {
+        p1len = max(plen, e1len);
+        p2len = max(qlen, e2len);
+        keylen += p1len * 3 + p2len * 2 + mlen;
+    }
 
     key = malloc(keylen);
     if (!key) {
         return -1;
     }
 
+    memset(key, 0, keylen);
+
 
     /* http://msdn.microsoft.com/library/windows/desktop/aa375531.aspx */
     rsakey = (BCRYPT_RSAKEY_BLOB *)key;
-    rsakey->BitLength = nlen * 8;
+    rsakey->BitLength = mlen * 8;
     rsakey->cbPublicExp = elen;
-    rsakey->cbModulus = nlen;
+    rsakey->cbModulus = mlen;
 
     memcpy(key + offset, edata, elen);
     offset += elen;
 
-    memcpy(key + offset, ndata, nlen);
+    if (nlen < mlen)
+        memcpy(key + offset + mlen - nlen, ndata, nlen);
+    else
+        memcpy(key + offset, ndata + nlen - mlen, mlen);
 
     if (ddata && dlen > 0) {
-        offset += nlen;
+        offset += mlen;
 
-        memcpy(key + offset, pdata, plen);
-        offset += plen;
+        if (plen < p1len)
+            memcpy(key + offset + p1len - plen, pdata, plen);
+        else
+            memcpy(key + offset, pdata + plen - p1len, p1len);
+        offset += p1len;
 
-        memcpy(key + offset, qdata, qlen);
-        offset += qlen;
+        if (qlen < p2len)
+            memcpy(key + offset + p2len - qlen, qdata, qlen);
+        else
+            memcpy(key + offset, qdata + qlen - p2len, p2len);
+        offset += p2len;
 
-        memcpy(key + offset, e1data, e1len);
-        offset += e1len;
+        if (e1len < p1len)
+            memcpy(key + offset + p1len - e1len, e1data, e1len);
+        else
+            memcpy(key + offset, e1data + e1len - p1len, p1len);
+        offset += p1len;
 
-        memcpy(key + offset, e2data, e2len);
-        offset += e2len;
+        if (e2len < p2len)
+            memcpy(key + offset + p2len - e2len, e2data, e2len);
+        else
+            memcpy(key + offset, e2data + e2len - p2len, p2len);
+        offset += p2len;
 
-        memcpy(key + offset, coeffdata, coefflen);
-        offset += coefflen;
+        if (coefflen < p1len)
+            memcpy(key + offset + p1len - coefflen, coeffdata, coefflen);
+        else
+            memcpy(key + offset, coeffdata + coefflen - p1len, p1len);
+        offset += p1len;
 
-        memcpy(key + offset, ddata, dlen);
+        if (dlen < mlen)
+            memcpy(key + offset + mlen - dlen, ddata, dlen);
+        else
+            memcpy(key + offset, ddata + dlen - mlen, mlen);
 
         lpszBlobType = BCRYPT_RSAFULLPRIVATE_BLOB;
         rsakey->Magic = BCRYPT_RSAFULLPRIVATE_MAGIC;
-        rsakey->cbPrime1 = plen;
-        rsakey->cbPrime2 = qlen;
+        rsakey->cbPrime1 = p1len;
+        rsakey->cbPrime2 = p2len;
     } else {
         lpszBlobType = BCRYPT_RSAPUBLIC_BLOB;
         rsakey->Magic = BCRYPT_RSAPUBLIC_MAGIC;
