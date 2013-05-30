@@ -472,6 +472,90 @@ _libssh2_wincng_key_sha1_verify(_libssh2_wincng_key_ctx *ctx,
     return ret == STATUS_SUCCESS ? 0 : -1;
 }
 
+#ifdef HAVE_LIBCRYPT32
+/* http://msdn.microsoft.com/library/windows/desktop/aa380285.aspx */
+BOOL WINAPI CryptStringToBinaryA(
+    LPCTSTR pszString,
+    DWORD cchString,
+    DWORD dwFlags,
+    BYTE *pbBinary,
+    DWORD *pcbBinary,
+    DWORD *pdwSkip,
+    DWORD *pdwFlags
+);
+
+static int
+_libssh2_wincng_load_private(LIBSSH2_SESSION *session,
+                             const char *filename,
+                             const char *passphrase,
+                             PBYTE *ppbEncoded,
+                             DWORD *pcbEncoded)
+{
+    FILE *fp;
+    PBYTE pbEncoded;
+    DWORD cbEncoded;
+    unsigned char *data;
+    unsigned long datalen;
+    int ret;
+
+    (void)passphrase;
+
+    fp = fopen(filename, "r");
+    if (!fp) {
+        return -1;
+    }
+
+    fseek(fp, 0L, SEEK_END);
+    datalen = ftell(fp);
+    rewind(fp);
+
+    data = LIBSSH2_ALLOC(session, datalen);
+    if (!data) {
+        fclose(fp);
+        return -1;
+    }
+
+    ret = fread(data, datalen, 1, fp);
+
+    fclose(fp);
+
+    if (ret != 1) {
+        _libssh2_wincng_sfree(session, data, datalen);
+        return -1;
+    }
+
+
+    ret = CryptStringToBinaryA((LPCTSTR)data, datalen, CRYPT_STRING_ANY,
+                               NULL, &cbEncoded, NULL, NULL);
+    if (!ret) {
+        _libssh2_wincng_sfree(session, data, datalen);
+        return -1;
+    }
+
+    pbEncoded = LIBSSH2_ALLOC(session, cbEncoded);
+    if (!pbEncoded) {
+        _libssh2_wincng_sfree(session, data, datalen);
+        return -1;
+    }
+
+    ret = CryptStringToBinaryA((LPCTSTR)data, datalen, CRYPT_STRING_ANY,
+                               pbEncoded, &cbEncoded, NULL, NULL);
+    if (!ret) {
+        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+        _libssh2_wincng_sfree(session, data, datalen);
+        return -1;
+    }
+
+    _libssh2_wincng_sfree(session, data, datalen);
+
+
+    *ppbEncoded = pbEncoded;
+    *pcbEncoded = cbEncoded;
+
+    return 0;
+}
+#endif /* HAVE_LIBCRYPT32 */
+
 
 /*******************************************************************/
 /*
@@ -608,117 +692,27 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
 }
 
 #ifdef HAVE_LIBCRYPT32
-/* http://msdn.microsoft.com/library/windows/desktop/aa380285.aspx */
-BOOL WINAPI CryptStringToBinaryA(
-    LPCTSTR pszString,
-    DWORD cchString,
-    DWORD dwFlags,
-    BYTE *pbBinary,
-    DWORD *pcbBinary,
-    DWORD *pdwSkip,
-    DWORD *pdwFlags
-);
-
-static int
-_libssh2_wincng_load_private(LIBSSH2_SESSION *session,
-                             const char *filename,
-                             const char *passphrase,
-                             PBYTE *ppbEncoded,
-                             DWORD *pcbEncoded)
-{
-    FILE *fp;
-    PBYTE pbEncoded;
-    DWORD cbEncoded;
-    unsigned char *data;
-    unsigned long datalen;
-    int ret;
-
-    (void)passphrase;
-
-    fp = fopen(filename, "r");
-    if (!fp) {
-        return -1;
-    }
-
-    fseek(fp, 0L, SEEK_END);
-    datalen = ftell(fp);
-    rewind(fp);
-
-    data = LIBSSH2_ALLOC(session, datalen);
-    if (!data) {
-        fclose(fp);
-        return -1;
-    }
-
-    ret = fread(data, datalen, 1, fp);
-
-    fclose(fp);
-
-    if (ret != 1) {
-        _libssh2_wincng_sfree(session, data, datalen);
-        return -1;
-    }
-
-
-    ret = CryptStringToBinaryA((LPCTSTR)data, datalen, CRYPT_STRING_ANY,
-                               NULL, &cbEncoded, NULL, NULL);
-    if (!ret) {
-        _libssh2_wincng_sfree(session, data, datalen);
-        return -1;
-    }
-
-    pbEncoded = LIBSSH2_ALLOC(session, cbEncoded);
-    if (!pbEncoded) {
-        _libssh2_wincng_sfree(session, data, datalen);
-        return -1;
-    }
-
-    ret = CryptStringToBinaryA((LPCTSTR)data, datalen, CRYPT_STRING_ANY,
-                               pbEncoded, &cbEncoded, NULL, NULL);
-    if (!ret) {
-        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
-        _libssh2_wincng_sfree(session, data, datalen);
-        return -1;
-    }
-
-    _libssh2_wincng_sfree(session, data, datalen);
-
-
-    *ppbEncoded = pbEncoded;
-    *pcbEncoded = cbEncoded;
-
-    return 0;
-}
-
 static int
 _libssh2_wincng_rsa_load_private(LIBSSH2_SESSION *session,
-                                 const char *filename,
-                                 const char *passphrase,
+                                 PBYTE pbEncoded,
+                                 DWORD cbEncoded,
                                  PBYTE *ppbStructInfo,
                                  DWORD *pcbStructInfo)
 {
-    PBYTE pbEncoded, pbStructInfo;
-    DWORD cbEncoded, cbStructInfo;
+    PBYTE pbStructInfo;
+    DWORD cbStructInfo;
     int ret;
-
-    ret = _libssh2_wincng_load_private(session, filename, passphrase,
-                                       &pbEncoded, &cbEncoded);
-    if (ret) {
-        return -1;
-    }
 
     ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
                               PKCS_RSA_PRIVATE_KEY,
                               pbEncoded, cbEncoded, 0, NULL,
                               NULL, &cbStructInfo);
     if (!ret) {
-        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
         return -1;
     }
 
     pbStructInfo = LIBSSH2_ALLOC(session, cbStructInfo);
     if (!pbStructInfo) {
-        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
         return -1;
     }
 
@@ -728,11 +722,8 @@ _libssh2_wincng_rsa_load_private(LIBSSH2_SESSION *session,
                               pbStructInfo, &cbStructInfo);
     if (!ret) {
         _libssh2_wincng_sfree(session, pbStructInfo, cbStructInfo);
-        _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
         return -1;
     }
-
-    _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
 
 
     *ppbStructInfo = pbStructInfo;
@@ -750,13 +741,23 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
 {
 #ifdef HAVE_LIBCRYPT32
     BCRYPT_KEY_HANDLE hKey;
-    PBYTE pbStructInfo;
-    DWORD cbStructInfo;
+    PBYTE pbEncoded, pbStructInfo;
+    DWORD cbEncoded, cbStructInfo;
     int ret;
 
-    ret = _libssh2_wincng_rsa_load_private(session, filename,
-                                           (const char *)passphrase,
+    ret = _libssh2_wincng_load_private(session, filename,
+                                       (const char *)passphrase,
+                                       &pbEncoded, &cbEncoded);
+
+    if (ret) {
+        return -1;
+    }
+
+    ret = _libssh2_wincng_rsa_load_private(session, pbEncoded, cbEncoded,
                                            &pbStructInfo, &cbStructInfo);
+
+    _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+
     if (ret) {
         return -1;
     }
@@ -1135,14 +1136,23 @@ _libssh2_wincng_pub_priv_keyfile(LIBSSH2_SESSION *session,
 {
 #ifdef HAVE_LIBCRYPT32
     BCRYPT_RSAKEY_BLOB *rsakey;
-    PBYTE pbInput, pbOutput;
-    DWORD cbInput, cbOutput;
+    PBYTE pbEncoded, pbInput, pbOutput;
+    DWORD cbEncoded, cbInput, cbOutput;
     unsigned char *key, *mth, *rsabuf;
     unsigned long keylen, mthlen, offset, rsaoffset;
     int ret;
 
-    ret = _libssh2_wincng_rsa_load_private(session, privatekey, passphrase,
+    ret = _libssh2_wincng_load_private(session, privatekey, passphrase,
+                                       &pbEncoded, &cbEncoded);
+    if (ret) {
+        return -1;
+    }
+
+    ret = _libssh2_wincng_rsa_load_private(session, pbEncoded, cbEncoded,
                                            &pbInput, &cbInput);
+
+    _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+
     if (ret) {
         return -1;
     }
