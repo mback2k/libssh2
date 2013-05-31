@@ -595,6 +595,46 @@ _libssh2_wincng_asn_decode(LIBSSH2_SESSION *session,
 
     return 0;
 }
+
+static int
+_libssh2_wincng_bn_ltob(LIBSSH2_SESSION *session,
+                        PBYTE pbInput,
+                        DWORD cbInput,
+                        PBYTE *ppbOutput,
+                        DWORD *pcbOutput)
+{
+    PBYTE pbOutput;
+    DWORD cbOutput;
+    unsigned long index, offset, length;
+
+    if (cbInput < 1) {
+        return 0;
+    }
+
+    offset = 0;
+    cbOutput = cbInput;
+    if (pbInput[0] & (1 << 7)) {
+        offset++;
+        cbOutput++;
+    }
+
+    pbOutput = LIBSSH2_ALLOC(session, cbOutput);
+    if (!pbOutput) {
+        return -1;
+    }
+
+    pbOutput[0] = 0;
+    length = cbInput - 1;
+    for (index = 0; index < cbInput; index++) {
+        pbOutput[index + offset] = pbInput[length - index];
+    }
+
+
+    *ppbOutput = pbOutput;
+    *pcbOutput = cbOutput;
+
+    return 0;
+}
 #endif /* HAVE_LIBCRYPT32 */
 
 static unsigned long
@@ -1001,8 +1041,76 @@ int
 _libssh2_wincng_dsa_new_private(libssh2_dsa_ctx **dsa,
                                 LIBSSH2_SESSION * session,
                                 const char *filename,
-                                unsigned const char *passphrase)
+                                const unsigned char *passphrase)
 {
+#ifdef HAVE_LIBCRYPT32
+    PCRYPT_DATA_BLOB pSequence, rpInteger;
+    PBYTE pbEncoded, pbDecoded, rpbDecoded[6], rpbInteger[6];
+    DWORD cbEncoded, cbDecoded, rcbDecoded[6], rcbInteger[6];
+    unsigned long index;
+    int ret;
+
+    ret = _libssh2_wincng_load_private(session, filename,
+                                       (const char *)passphrase,
+                                       &pbEncoded, &cbEncoded);
+    if (ret) {
+        fprintf(stderr, "_libssh2_wincng_load_private failed\n");
+        return -1;
+    }
+
+    ret = _libssh2_wincng_asn_decode(session, pbEncoded, cbEncoded,
+                                     X509_SEQUENCE_OF_ANY,
+                                     &pbDecoded, &cbDecoded);
+    if (ret) {
+        fprintf(stderr, "_libssh2_wincng_asn_decode failed\n");
+        return -1;
+    }
+
+    _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
+
+    pSequence = (PCRYPT_DATA_BLOB)pbDecoded;
+    if (pSequence->cbData < 6) {
+        _libssh2_wincng_sfree(session, pbDecoded, cbDecoded);
+        return -1;
+    }
+
+    for (index = 0; index < 6; index++) {
+        pbEncoded = ((PCRYPT_DER_BLOB)pSequence->pbData)[index].pbData;
+        cbEncoded = ((PCRYPT_DER_BLOB)pSequence->pbData)[index].cbData;
+
+        _libssh2_wincng_asn_decode(session, pbEncoded, cbEncoded,
+                                   X509_MULTI_BYTE_UINT,
+                                   &rpbDecoded[index], &rcbDecoded[index]);
+
+        rpInteger = (PCRYPT_DATA_BLOB)rpbDecoded[index];
+        _libssh2_wincng_bn_ltob(session, rpInteger->pbData,
+                                rpInteger->cbData,
+                                &rpbInteger[index], &rcbInteger[index]);
+    }
+
+    _libssh2_wincng_sfree(session, pbDecoded, cbDecoded);
+
+    for (index = 0; index < 6; index++)
+        _libssh2_wincng_sfree(session, rpbDecoded[index], rcbDecoded[index]);
+
+
+    ret = _libssh2_wincng_dsa_new(dsa,
+                                  rpbInteger[1], rcbInteger[1],
+                                  rpbInteger[2], rcbInteger[2],
+                                  rpbInteger[3], rcbInteger[3],
+                                  rpbInteger[4], rcbInteger[4],
+                                  rpbInteger[5], rcbInteger[5]);
+
+    for (index = 0; index < 6; index++)
+        _libssh2_wincng_sfree(session, rpbInteger[index], rcbInteger[index]);
+
+    if (ret) {
+        fprintf(stderr, "_libssh2_wincng_dsa_new failed\n");
+        return -1;
+    }
+
+    return 0;
+#else
     (void)dsa;
     (void)session;
     (void)filename;
@@ -1011,6 +1119,7 @@ _libssh2_wincng_dsa_new_private(libssh2_dsa_ctx **dsa,
     return _libssh2_error(session, LIBSSH2_ERROR_FILE,
                           "Unable to load DSA key from private key file: "
                           "Method unsupported in Windows CNG backend");
+#endif /* HAVE_LIBCRYPT32 */
 }
 
 int
