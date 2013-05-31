@@ -556,6 +556,26 @@ _libssh2_wincng_load_private(LIBSSH2_SESSION *session,
 }
 #endif /* HAVE_LIBCRYPT32 */
 
+static unsigned long
+_libssh2_wincng_bn_size(const unsigned char *bignum,
+                        unsigned long length)
+{
+    unsigned long offset;
+
+    if (!bignum)
+        return 0;
+
+    length--;
+
+    offset = 0;
+    while (!(*(bignum + offset)) && (offset < length))
+        offset++;
+
+    length++;
+
+    return length - offset;
+}
+
 
 /*******************************************************************/
 /*
@@ -588,12 +608,15 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     unsigned long keylen, offset, mlen, p1len, p2len;
     int ret;
 
-    mlen = max(nlen, dlen);
+    mlen = max(_libssh2_wincng_bn_size(ndata, nlen),
+               _libssh2_wincng_bn_size(ddata, dlen));
     offset = sizeof(BCRYPT_RSAKEY_BLOB);
     keylen = offset + elen + mlen;
     if (ddata && dlen > 0) {
-        p1len = max(plen, e1len);
-        p2len = max(qlen, e2len);
+        p1len = max(_libssh2_wincng_bn_size(pdata, plen),
+                    _libssh2_wincng_bn_size(e1data, e1len));
+        p2len = max(_libssh2_wincng_bn_size(qdata, qlen),
+                    _libssh2_wincng_bn_size(e2data, e2len));
         keylen += p1len * 3 + p2len * 2 + mlen;
     }
 
@@ -892,13 +915,10 @@ _libssh2_wincng_dsa_new(libssh2_dsa_ctx **dsa,
     unsigned long keylen, offset, length;
     int ret;
 
-    offset = 0;
-    while (!*(ydata + offset))
-        offset++;
-
-    length = ylen - offset;
+    length = max(max(_libssh2_wincng_bn_size(pdata, plen),
+                     _libssh2_wincng_bn_size(gdata, glen)),
+                 _libssh2_wincng_bn_size(ydata, ylen));
     offset = sizeof(BCRYPT_DSA_KEY_BLOB);
-
     keylen = offset + length * 3;
     if (xdata && xlen > 0)
         keylen += 20;
