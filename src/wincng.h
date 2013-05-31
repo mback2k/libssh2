@@ -115,9 +115,9 @@ void _libssh2_wincng_free(void);
 
 struct _libssh2_wincng_hash_ctx {
     BCRYPT_HASH_HANDLE hHash;
-    PBYTE pbHashObject;
-    DWORD dwHashObject;
-    ULONG cbHash;
+    unsigned char *pbHashObject;
+    unsigned long dwHashObject;
+    unsigned long cbHash;
 };
 
 #define _libssh2_wincng_hash_ctx struct _libssh2_wincng_hash_ctx
@@ -178,8 +178,8 @@ struct _libssh2_wincng_hash_ctx {
 
 struct _libssh2_wincng_key_ctx {
     BCRYPT_KEY_HANDLE hKey;
-    PBYTE pbKeyObject;
-    ULONG cbKeyObject;
+    unsigned char *pbKeyObject;
+    unsigned long cbKeyObject;
 };
 
 #define _libssh2_wincng_key_ctx struct _libssh2_wincng_key_ctx
@@ -237,11 +237,11 @@ struct _libssh2_wincng_key_ctx {
 
 struct _libssh2_wincng_cipher_ctx {
     BCRYPT_KEY_HANDLE hKey;
-    PBYTE pbKeyObject;
-    PBYTE pbIV;
-    DWORD dwKeyObject;
-    DWORD dwIV;
-    DWORD dwBlockLength;
+    unsigned char *pbKeyObject;
+    unsigned char *pbIV;
+    unsigned long dwKeyObject;
+    unsigned long dwIV;
+    unsigned long dwBlockLength;
 };
 
 #define _libssh2_cipher_ctx struct _libssh2_wincng_cipher_ctx
@@ -252,8 +252,8 @@ struct _libssh2_wincng_cipher_ctx {
 
 struct _libssh2_wincng_cipher_type {
     BCRYPT_ALG_HANDLE *phAlg;
-    DWORD dwKeyLength;
-    DWORD dwUseIV;
+    unsigned long dwKeyLength;
+    unsigned long dwUseIV;
 };
 
 #define _libssh2_cipher_type(type) struct _libssh2_wincng_cipher_type type
