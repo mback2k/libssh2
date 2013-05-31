@@ -554,6 +554,47 @@ _libssh2_wincng_load_private(LIBSSH2_SESSION *session,
 
     return 0;
 }
+
+static int
+_libssh2_wincng_asn_decode(LIBSSH2_SESSION *session,
+                           PBYTE pbEncoded,
+                           DWORD cbEncoded,
+                           LPCSTR lpszStructType,
+                           PBYTE *ppbDecoded,
+                           DWORD *pcbDecoded)
+{
+    PBYTE pbDecoded;
+    DWORD cbDecoded;
+    int ret;
+
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                              lpszStructType,
+                              pbEncoded, cbEncoded, 0, NULL,
+                              NULL, &cbDecoded);
+    if (!ret) {
+        return -1;
+    }
+
+    pbDecoded = LIBSSH2_ALLOC(session, cbDecoded);
+    if (!pbDecoded) {
+        return -1;
+    }
+
+    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                              lpszStructType,
+                              pbEncoded, cbEncoded, 0, NULL,
+                              pbDecoded, &cbDecoded);
+    if (!ret) {
+        _libssh2_wincng_sfree(session, pbDecoded, cbDecoded);
+        return -1;
+    }
+
+
+    *ppbDecoded = pbDecoded;
+    *pcbDecoded = cbDecoded;
+
+    return 0;
+}
 #endif /* HAVE_LIBCRYPT32 */
 
 static unsigned long
@@ -714,48 +755,6 @@ _libssh2_wincng_rsa_new(libssh2_rsa_ctx **rsa,
     return 0;
 }
 
-#ifdef HAVE_LIBCRYPT32
-static int
-_libssh2_wincng_rsa_load_private(LIBSSH2_SESSION *session,
-                                 PBYTE pbEncoded,
-                                 DWORD cbEncoded,
-                                 PBYTE *ppbStructInfo,
-                                 DWORD *pcbStructInfo)
-{
-    PBYTE pbStructInfo;
-    DWORD cbStructInfo;
-    int ret;
-
-    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
-                              PKCS_RSA_PRIVATE_KEY,
-                              pbEncoded, cbEncoded, 0, NULL,
-                              NULL, &cbStructInfo);
-    if (!ret) {
-        return -1;
-    }
-
-    pbStructInfo = LIBSSH2_ALLOC(session, cbStructInfo);
-    if (!pbStructInfo) {
-        return -1;
-    }
-
-    ret = CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
-                              PKCS_RSA_PRIVATE_KEY,
-                              pbEncoded, cbEncoded, 0, NULL,
-                              pbStructInfo, &cbStructInfo);
-    if (!ret) {
-        _libssh2_wincng_sfree(session, pbStructInfo, cbStructInfo);
-        return -1;
-    }
-
-
-    *ppbStructInfo = pbStructInfo;
-    *pcbStructInfo = cbStructInfo;
-
-    return 0;
-}
-#endif /* HAVE_LIBCRYPT32 */
-
 int
 _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
                                 LIBSSH2_SESSION *session,
@@ -771,13 +770,13 @@ _libssh2_wincng_rsa_new_private(libssh2_rsa_ctx **rsa,
     ret = _libssh2_wincng_load_private(session, filename,
                                        (const char *)passphrase,
                                        &pbEncoded, &cbEncoded);
-
     if (ret) {
         return -1;
     }
 
-    ret = _libssh2_wincng_rsa_load_private(session, pbEncoded, cbEncoded,
-                                           &pbStructInfo, &cbStructInfo);
+    ret = _libssh2_wincng_asn_decode(session, pbEncoded, cbEncoded,
+                                     PKCS_RSA_PRIVATE_KEY,
+                                     &pbStructInfo, &cbStructInfo);
 
     _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
 
@@ -1168,8 +1167,9 @@ _libssh2_wincng_pub_priv_keyfile(LIBSSH2_SESSION *session,
         return -1;
     }
 
-    ret = _libssh2_wincng_rsa_load_private(session, pbEncoded, cbEncoded,
-                                           &pbInput, &cbInput);
+    ret = _libssh2_wincng_asn_decode(session, pbEncoded, cbEncoded,
+                                     PKCS_RSA_PRIVATE_KEY,
+                                     &pbInput, &cbInput);
 
     _libssh2_wincng_sfree(session, pbEncoded, cbEncoded);
 
