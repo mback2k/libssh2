@@ -1054,7 +1054,6 @@ _libssh2_wincng_dsa_new_private(libssh2_dsa_ctx **dsa,
                                        (const char *)passphrase,
                                        &pbEncoded, &cbEncoded);
     if (ret) {
-        fprintf(stderr, "_libssh2_wincng_load_private failed\n");
         return -1;
     }
 
@@ -1062,7 +1061,6 @@ _libssh2_wincng_dsa_new_private(libssh2_dsa_ctx **dsa,
                                      X509_SEQUENCE_OF_ANY,
                                      &pbDecoded, &cbDecoded);
     if (ret) {
-        fprintf(stderr, "_libssh2_wincng_asn_decode failed\n");
         return -1;
     }
 
@@ -1104,12 +1102,7 @@ _libssh2_wincng_dsa_new_private(libssh2_dsa_ctx **dsa,
     for (index = 0; index < 6; index++)
         _libssh2_wincng_sfree(session, rpbInteger[index], rcbInteger[index]);
 
-    if (ret) {
-        fprintf(stderr, "_libssh2_wincng_dsa_new failed\n");
-        return -1;
-    }
-
-    return 0;
+    return ret;
 #else
     (void)dsa;
     (void)session;
