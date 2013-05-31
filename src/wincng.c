@@ -1028,7 +1028,6 @@ _libssh2_wincng_dsa_sha1_sign(libssh2_dsa_ctx *dsa,
                               unsigned long hash_len,
                               unsigned char *sig_fixed)
 {
-    BCRYPT_PKCS1_PADDING_INFO paddingInfo;
     DWORD cbData;
     unsigned char *data, *sig;
     unsigned long datalen, siglen;
@@ -1040,22 +1039,17 @@ _libssh2_wincng_dsa_sha1_sign(libssh2_dsa_ctx *dsa,
         return -1;
     }
 
-    paddingInfo.pszAlgId = BCRYPT_SHA1_ALGORITHM;
-
     memcpy(data, hash, datalen);
 
-    ret = BCryptSignHash(dsa->hKey, &paddingInfo,
-                         data, datalen, NULL, 0,
-                         &cbData, BCRYPT_PAD_PKCS1);
+    ret = BCryptSignHash(dsa->hKey, NULL, data, datalen,
+                         NULL, 0, &cbData, 0);
     if (ret == STATUS_SUCCESS) {
         siglen = cbData;
-        fprintf(stderr, "siglen = %d\n", siglen);
         if (siglen == 40) {
             sig = malloc(siglen);
             if (sig) {
-                ret = BCryptSignHash(dsa->hKey, &paddingInfo,
-                                     data, datalen, sig, siglen,
-                                     &cbData, BCRYPT_PAD_PKCS1);
+                ret = BCryptSignHash(dsa->hKey, NULL, data, datalen,
+                                     sig, siglen, &cbData, 0);
                 if (ret == STATUS_SUCCESS) {
                     memcpy(sig_fixed, sig, siglen);
                 }
