@@ -21,6 +21,7 @@
 #define HAVE_WINSOCK2_H
 #define HAVE_IOCTLSOCKET
 #define HAVE_SELECT
+#define HAVE_NTSTATUS_H
 
 #ifdef _MSC_VER
 #define snprintf _snprintf
