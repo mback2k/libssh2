@@ -7,6 +7,9 @@ endif
 if LIBGCRYPT
 CSOURCES += libgcrypt.c
 endif
+if WINCNG
+CSOURCES += wincng.c
+endif
 
 HHEADERS = libssh2_priv.h transport.h channel.h comp.h mac.h misc.h \
  packet.h userauth.h session.h sftp.h crypto.h
@@ -15,4 +18,7 @@ HHEADERS += openssl.h
 endif
 if LIBGCRYPT
 HHEADERS += libgcrypt.h
+endif
+if WINCNG
+HHEADERS += wincng.h
 endif
