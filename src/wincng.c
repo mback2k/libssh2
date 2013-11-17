@@ -201,25 +201,34 @@ _libssh2_wincng_init(void)
     ret = BCryptOpenAlgorithmProvider(&_libssh2_wincng.hAlgAES_CBC,
                                       BCRYPT_AES_ALGORITHM, NULL, 0);
     if (ret == STATUS_SUCCESS) {
-        BCryptSetProperty(_libssh2_wincng.hAlgAES_CBC, BCRYPT_CHAINING_MODE,
-                          (PBYTE)BCRYPT_CHAIN_MODE_CBC,
-                          sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
+        ret = BCryptSetProperty(_libssh2_wincng.hAlgAES_CBC, BCRYPT_CHAINING_MODE,
+                                (PBYTE)BCRYPT_CHAIN_MODE_CBC,
+                                sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
+        if (ret != STATUS_SUCCESS) {
+            BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgAES_CBC, 0);
+        }
     }
 
     ret = BCryptOpenAlgorithmProvider(&_libssh2_wincng.hAlgRC4_NA,
                                       BCRYPT_RC4_ALGORITHM, NULL, 0);
     if (ret == STATUS_SUCCESS) {
-        BCryptSetProperty(_libssh2_wincng.hAlgRC4_NA, BCRYPT_CHAINING_MODE,
-                          (PBYTE)BCRYPT_CHAIN_MODE_NA,
-                          sizeof(BCRYPT_CHAIN_MODE_NA), 0);
+        ret = BCryptSetProperty(_libssh2_wincng.hAlgRC4_NA, BCRYPT_CHAINING_MODE,
+                                (PBYTE)BCRYPT_CHAIN_MODE_NA,
+                                sizeof(BCRYPT_CHAIN_MODE_NA), 0);
+        if (ret != STATUS_SUCCESS) {
+            BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlgRC4_NA, 0);
+        }
     }
 
     ret = BCryptOpenAlgorithmProvider(&_libssh2_wincng.hAlg3DES_CBC,
                                       BCRYPT_3DES_ALGORITHM, NULL, 0);
     if (ret == STATUS_SUCCESS) {
-        BCryptSetProperty(_libssh2_wincng.hAlg3DES_CBC, BCRYPT_CHAINING_MODE,
-                          (PBYTE)BCRYPT_CHAIN_MODE_CBC,
-                          sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
+        ret = BCryptSetProperty(_libssh2_wincng.hAlg3DES_CBC, BCRYPT_CHAINING_MODE,
+                                (PBYTE)BCRYPT_CHAIN_MODE_CBC,
+                                sizeof(BCRYPT_CHAIN_MODE_CBC), 0);
+        if (ret != STATUS_SUCCESS) {
+            BCryptCloseAlgorithmProvider(_libssh2_wincng.hAlg3DES_CBC, 0);
+        }
     }
 }
 
