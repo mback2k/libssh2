@@ -38,6 +38,8 @@
  * OF SUCH DAMAGE.
  */
 
+#ifdef LIBSSH2_OPENSSL /* compile only if we build with openssl */
+
 #include "libssh2_priv.h"
 
 #include <string.h>
@@ -814,3 +816,5 @@ _libssh2_pub_priv_keyfile(LIBSSH2_SESSION *session,
     EVP_PKEY_free(pk);
     return st;
 }
+
+#endif /* LIBSSH2_OPENSSL */

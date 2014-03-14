@@ -1307,7 +1307,7 @@ static ssize_t sftp_read(LIBSSH2_SFTP_HANDLE * handle, char *buffer,
            without having been acked - until we reach EOF. */
         if(!filep->eof) {
             /* Number of bytes asked for that haven't been acked yet */
-            size_t already = (filep->offset_sent - filep->offset);
+            size_t already = (size_t)(filep->offset_sent - filep->offset);
 
             size_t max_read_ahead = buffer_size*4;
             unsigned long recv_window;
@@ -1829,8 +1829,8 @@ static ssize_t sftp_write(LIBSSH2_SFTP_HANDLE *handle, const char *buffer,
            acked but we haven't been able to return as such yet, so we will
            get that data as well passed in here again.
         */
-        already = (handle->u.file.offset_sent - handle->u.file.offset)+
-            handle->u.file.acked;
+        already = (size_t)((handle->u.file.offset_sent - handle->u.file.offset)+
+            handle->u.file.acked);
 
         if(count >= already) {
             /* skip the part already made into packets */
@@ -2769,7 +2769,7 @@ static int sftp_fstatvfs(LIBSSH2_SFTP_HANDLE *handle, LIBSSH2_SFTP_STATVFS *st)
     st->f_ffree = _libssh2_ntohu64(data + 53);
     st->f_favail = _libssh2_ntohu64(data + 61);
     st->f_fsid = _libssh2_ntohu64(data + 69);
-    flag = _libssh2_ntohu64(data + 77);
+    flag = (unsigned int)_libssh2_ntohu64(data + 77);
     st->f_namemax = _libssh2_ntohu64(data + 85);
 
     st->f_flag = (flag & SSH_FXE_STATVFS_ST_RDONLY)
@@ -2895,7 +2895,7 @@ static int sftp_statvfs(LIBSSH2_SFTP *sftp, const char *path,
     st->f_ffree = _libssh2_ntohu64(data + 53);
     st->f_favail = _libssh2_ntohu64(data + 61);
     st->f_fsid = _libssh2_ntohu64(data + 69);
-    flag = _libssh2_ntohu64(data + 77);
+    flag = (unsigned int)_libssh2_ntohu64(data + 77);
     st->f_namemax = _libssh2_ntohu64(data + 85);
 
     st->f_flag = (flag & SSH_FXE_STATVFS_ST_RDONLY)

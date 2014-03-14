@@ -34,3 +34,7 @@ tags
 libssh2.pc
 TAGS
 *~
+/win32/*.opensdf
+/win32/*.sdf
+/win32/*.suo
+/win32/*.user

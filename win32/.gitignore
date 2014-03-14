@@ -12,3 +12,4 @@ Release
 *.plg
 libssh2.dsp
 objects.mk
+obj
