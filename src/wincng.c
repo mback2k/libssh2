@@ -918,7 +918,7 @@ _libssh2_wincng_rsa_sha1_sign(LIBSSH2_SESSION *session,
     unsigned long cbData, datalen, siglen;
     int ret;
 
-    datalen = hash_len;
+    datalen = (unsigned long)hash_len;
     data = malloc(datalen);
     if (!data) {
         return -1;
@@ -1467,27 +1467,29 @@ _libssh2_wincng_cipher_crypt(_libssh2_cipher_ctx *ctx,
                              size_t blocklen)
 {
     unsigned char *pbOutput;
-    unsigned long cbOutput;
+    unsigned long cbOutput, cbInput;
     int ret;
 
     (void)type;
 
+    cbInput = (unsigned long)blocklen;
+
     if (encrypt) {
-        ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
+        ret = BCryptEncrypt(ctx->hKey, block, cbInput, NULL,
                             ctx->pbIV, ctx->dwIV, NULL, 0, &cbOutput, 0);
     } else {
-        ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
+        ret = BCryptDecrypt(ctx->hKey, block, cbInput, NULL,
                             ctx->pbIV, ctx->dwIV, NULL, 0, &cbOutput, 0);
     }
     if (ret == STATUS_SUCCESS) {
         pbOutput = malloc(cbOutput);
         if (pbOutput) {
             if (encrypt) {
-                ret = BCryptEncrypt(ctx->hKey, block, blocklen, NULL,
+                ret = BCryptEncrypt(ctx->hKey, block, cbInput, NULL,
                                     ctx->pbIV, ctx->dwIV,
                                     pbOutput, cbOutput, &cbOutput, 0);
             } else {
-                ret = BCryptDecrypt(ctx->hKey, block, blocklen, NULL,
+                ret = BCryptDecrypt(ctx->hKey, block, cbInput, NULL,
                                     ctx->pbIV, ctx->dwIV,
                                     pbOutput, cbOutput, &cbOutput, 0);
             }
@@ -1564,7 +1566,7 @@ _libssh2_wincng_bignum_rand(_libssh2_bn *rnd, int bits, int top, int bottom)
     if (!rnd)
         return -1;
 
-    length = ceil((float)bits / 8) * sizeof(unsigned char);
+    length = (unsigned long)(ceil((float)bits / 8) * sizeof(unsigned char));
     if (_libssh2_wincng_bignum_resize(rnd, length))
         return -1;
 
@@ -1684,7 +1686,7 @@ _libssh2_wincng_bignum_set_word(_libssh2_bn *bn, unsigned long word)
     while (number >>= 1)
         bits++;
 
-    length = ceil((double)(bits+1) / 8) * sizeof(unsigned char);
+    length = (unsigned long)(ceil((double)(bits+1)/8)*sizeof(unsigned char));
     if (_libssh2_wincng_bignum_resize(bn, length))
         return -1;
 
