@@ -1679,6 +1679,7 @@ _libssh2_wincng_bignum_set_word(_libssh2_bn *bn, unsigned long word)
     if (!bn)
         return -1;
 
+    bits = 0;
     number = word;
     while (number >>= 1)
         bits++;
