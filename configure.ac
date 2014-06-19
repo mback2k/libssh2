@@ -197,6 +197,13 @@ if test "$GEX_NEW" != "no"; then
   AC_DEFINE(LIBSSH2_DH_GEX_NEW, 1, [Enable newer diffie-hellman-group-exchange-sha1 syntax])
 fi
 
+AC_ARG_ENABLE(clear-memory,
+  AC_HELP_STRING([--disable-clear-memory],[Disable clearing of memory before being freed]),
+  [CLEAR_MEMORY=$enableval])
+if test "$CLEAR_MEMORY" != "no"; then
+  AC_DEFINE(LIBSSH2_CLEAR_MEMORY, 1, [Enable clearing of memory before being freed])
+fi
+
 dnl ************************************************************
 dnl option to switch on compiler debug options
 dnl
