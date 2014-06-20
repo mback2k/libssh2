@@ -197,6 +197,21 @@ if test "$GEX_NEW" != "no"; then
   AC_DEFINE(LIBSSH2_DH_GEX_NEW, 1, [Enable newer diffie-hellman-group-exchange-sha1 syntax])
 fi
 
+AC_ARG_ENABLE(clear-memory,
+  AC_HELP_STRING([--disable-clear-memory],[Disable clearing of memory before being freed]),
+  [CLEAR_MEMORY=$enableval])
+if test "$ac_cv_libbcrypt" = "yes"; then
+  if test "$CLEAR_MEMORY" != "no"; then
+    AC_DEFINE(LIBSSH2_CLEAR_MEMORY, 1, [Enable clearing of memory before being freed])
+    enable_clear_memory=yes
+  else
+    enable_clear_memory=no
+  fi
+else
+  AC_MSG_WARN([secure clearing/zeroing of memory is only supported by the WinCNG backend])
+  enable_clear_memory=unsupported
+fi
+
 dnl ************************************************************
 dnl option to switch on compiler debug options
 dnl
@@ -362,6 +377,7 @@ AC_MSG_NOTICE([summary of build options:
   Compiler flags:   ${CFLAGS}
   Library types:    Shared=${enable_shared}, Static=${enable_static}
   Crypto library:   ${found_crypto}
+  Clear memory:     $enable_clear_memory
   Debug build:      $enable_debug
   Build examples:   $build_examples
   Path to sshd:     $ac_cv_path_SSHD (only for self-tests)
