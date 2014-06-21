@@ -74,7 +74,7 @@ foreach(example ${EXAMPLES})
     COMMAND ${CMAKE_COMMAND}
       -DEXECUTABLE=$<TARGET_FILE:example-${example}>
       -DSEARCH_DIRS=${ESCAPED_RUNTIME_LIBRARY_DIRS}
-      -P ${CMAKE_SOURCE_DIR}/CMake/FixupExecutable.cmake
+      -P ${CMAKE_SOURCE_DIR}/cmake/FixupExecutable.cmake
     VERBATIM)
 endforeach()
 
