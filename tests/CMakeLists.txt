@@ -86,6 +86,25 @@ endif()
 add_test(simple test-simple)
 
 find_program(SSHD_EXECUTABLE sshd)
-if(SSHD_EXECUTABLE)
-  add_test(ssh2 test-ssh2)
+find_program(CHMOD_EXECUTABLE chmod)
+find_program(KILL_EXECUTABLE kill)
+if(SSHD_EXECUTABLE AND CHMOD_EXECUTABLE AND KILL_EXECUTABLE)
+  set(SSHD_TEST_CONFIG_DIR ${CMAKE_CURRENT_BINARY_DIR})
+  set(TEST_NAME ssh2)
+
+  add_custom_command(
+    TARGET test-${TEST_NAME}
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_CURRENT_SOURCE_DIR}/etc
+    ${SSHD_TEST_CONFIG_DIR}/etc)
+
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/sshd_fixture.sh.in
+    ${CMAKE_CURRENT_BINARY_DIR}/test-${TEST_NAME}_fixture.sh
+    @ONLY)
+
+  add_test(NAME ssh2 COMMAND ${SH_EXECUTABLE}
+    ${CMAKE_CURRENT_BINARY_DIR}/test-${TEST_NAME}_fixture.sh
+    $<TARGET_FILE:test-${TEST_NAME}>)
+
 endif()
