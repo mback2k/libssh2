@@ -37,6 +37,7 @@ include(CheckIncludeFiles)
 include(CheckFunctionExists)
 include(CheckSymbolExists)
 include(BundleUtilities)
+include(CopyRuntimeDependencies)
 
 ## Platform checks
 check_include_files(inttypes.h HAVE_INTTYPES_H)
@@ -55,21 +56,10 @@ set(TESTS
   simple
   ssh2)
 
-# Escape semicolons in runtime library search path list so we can pass it
-# through to the custom command
-string(REPLACE ";" "\$<SEMICOLON>"
-  ESCAPED_RUNTIME_LIBRARY_DIRS "${RUNTIME_LIBRARY_DIRS}")
-
 foreach(test ${TESTS})
   add_executable(test-${test} ${test}.c)
   target_link_libraries(test-${test} ssh2)
-
-  add_custom_command(TARGET test-${test} POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-      -DEXECUTABLE=$<TARGET_FILE:test-${test}>
-      -DSEARCH_DIRS=${ESCAPED_RUNTIME_LIBRARY_DIRS}
-      -P ${CMAKE_SOURCE_DIR}/cmake/FixupExecutable.cmake
-    VERBATIM)
+  copy_to_target_runtime_directory(test-${test} ${RUNTIME_DEPENDENCIES})
 endforeach()
 
 # TODO convert mansyntax.sh into CMake script.

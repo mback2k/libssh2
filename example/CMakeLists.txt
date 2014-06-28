@@ -36,6 +36,7 @@
 include(CheckIncludeFiles)
 include(CheckFunctionExists)
 include(CheckSymbolExists)
+include(CopyRuntimeDependencies)
 
 set(EXAMPLES
   direct_tcpip
@@ -61,21 +62,10 @@ set(EXAMPLES
   subsystem_netconf
   tcpip-forward)
 
-# Escape semicolons in runtime library search path list so we can pass it
-# through to the custom command
-string(REPLACE ";" "\$<SEMICOLON>"
-  ESCAPED_RUNTIME_LIBRARY_DIRS "${RUNTIME_LIBRARY_DIRS}")
-
 foreach(example ${EXAMPLES})
   add_executable(example-${example} ${example}.c)
   target_link_libraries(example-${example} ssh2)
-
-  add_custom_command(TARGET example-${example} POST_BUILD
-    COMMAND ${CMAKE_COMMAND}
-      -DEXECUTABLE=$<TARGET_FILE:example-${example}>
-      -DSEARCH_DIRS=${ESCAPED_RUNTIME_LIBRARY_DIRS}
-      -P ${CMAKE_SOURCE_DIR}/cmake/FixupExecutable.cmake
-    VERBATIM)
+  copy_to_target_runtime_directory(example-${example} ${RUNTIME_DEPENDENCIES})
 endforeach()
 
 ## Platform checks

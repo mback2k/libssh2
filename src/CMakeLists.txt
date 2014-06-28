@@ -97,7 +97,7 @@ endif()
 
 if(CRYPTO_BACKEND STREQUAL "OpenSSL" OR NOT CRYPTO_BACKEND)
 
-  Find_package(OpenSSL ${SPECIFIC_CRYPTO_REQUIREMENT})
+  find_package(OpenSSL ${SPECIFIC_CRYPTO_REQUIREMENT})
 
   if(OPENSSL_FOUND)
     set(CRYPTO_BACKEND "OpenSSL")
@@ -107,23 +107,29 @@ if(CRYPTO_BACKEND STREQUAL "OpenSSL" OR NOT CRYPTO_BACKEND)
     include_directories(${OPENSSL_INCLUDE_DIR})
     list(APPEND LIBRARIES ${OPENSSL_LIBRARIES})
 
-    if(NOT (DEFINED OPENSSL_RUNTIME_LIBRARY_DIRS))
-      # FindXXX modules should set the runtime library paths but most
-      # don't.  The windows binary installer places the .dll files in
-      # a different directory from the .lib files.
-      get_filename_component(_DIR ${OPENSSL_INCLUDE_DIR} PATH)
-      set(_OPENSSL_RUNTIME_LIBRARY_DIRS ${_DIR})
-      # Also try the same directory as the .dll/.so
-      foreach(library ${OPENSSL_LIBRARIES})
-	get_filename_component(_DIR ${library} PATH)
-	list(APPEND _OPENSSL_RUNTIME_LIBRARY_DIRS ${_DIR})
-      endforeach()
+    if (WIN32)
+      find_file(DLL_LIBEAY32
+	NAMES libeay32.dll crypto.dll
+        HINTS ${_OPENSSL_ROOT_HINTS} PATHS ${_OPENSSL_ROOT_PATHS}
+        PATH_SUFFIXES bin)
+      if (NOT DLL_LIBEAY32)
+        message(WARNING
+          "Unable to find OpenSSL libeay32 DLL, executables may not run")
+      endif()
 
-      set(OPENSSL_RUNTIME_LIBRARY_DIRS ${_OPENSSL_RUNTIME_LIBRARY_DIRS}
-	CACHE STRING "Directories containing OpenSSL shared libraries")
+      find_file(DLL_SSLEAY32
+        NAMES ssleay32.dll ssl.dll
+        HINTS ${_OPENSSL_ROOT_HINTS} PATHS ${_OPENSSL_ROOT_PATHS}
+        PATH_SUFFIXES bin)
+      if (NOT DLL_SSLEAY32)
+        message(WARNING
+          "Unable to find OpenSSL ssleay32 DLL, executables may not run")
+      endif()
+
+      if(DLL_LIBEAY32 AND DLL_SSLEAY32)
+        set(RUNTIME_DEPENDENCIES ${DLL_LIBEAY32} ${DLL_SSLEAY32})
+      endif()
     endif()
-
-    list(APPEND _RUNTIME_LIBRARY_DIRS ${OPENSSL_RUNTIME_LIBRARY_DIRS})
 
     # Not all OpenSSL have AES-CTR functions.
     set(SAVE_CMAKE_REQUIRED_LIBRARIES ${CMAKE_REQUIRED_LIBRARIES})
@@ -178,6 +184,9 @@ endif()
 if(NOT CRYPTO_BACKEND)
   message(FATAL_ERROR "No suitable cryptography backend found.")
 endif()
+
+set(RUNTIME_DEPENDENCIES ${RUNTIME_DEPENDENCIES} CACHE INTERNAL
+  "Files that must be in the same directory as the executables at runtime.")
 
 ## Platform checks
 check_include_files(unistd.h HAVE_UNISTD_H)
@@ -303,14 +312,6 @@ set(SOURCES
 
 add_library(ssh2 ${SOURCES})
 target_link_libraries(ssh2 ${LIBRARIES})
-
-foreach(library ${LIBRARIES})
-  get_filename_component(DIR ${library} PATH)
-  list(APPEND BINARY_DEPENDENCY_DIRS ${DIR})
-endforeach()
-
-set(RUNTIME_LIBRARY_DIRS "${_RUNTIME_LIBRARY_DIRS}"
-  CACHE STRING "Binary modules needed in runtime load path")
 
 install(TARGETS ssh2 DESTINATION lib)
 install(FILES libssh2.h libssh2_publickey.h libssh2_sftp.h DESTINATION include)
