@@ -127,7 +127,7 @@ if(CRYPTO_BACKEND STREQUAL "OpenSSL" OR NOT CRYPTO_BACKEND)
       endif()
 
       if(DLL_LIBEAY32 AND DLL_SSLEAY32)
-        set(RUNTIME_DEPENDENCIES ${DLL_LIBEAY32} ${DLL_SSLEAY32})
+        list(APPEND RUNTIME_DEPENDENCIES ${DLL_LIBEAY32} ${DLL_SSLEAY32})
       endif()
     endif()
 
@@ -184,9 +184,6 @@ endif()
 if(NOT CRYPTO_BACKEND)
   message(FATAL_ERROR "No suitable cryptography backend found.")
 endif()
-
-set(RUNTIME_DEPENDENCIES ${RUNTIME_DEPENDENCIES} CACHE INTERNAL
-  "Files that must be in the same directory as the executables at runtime.")
 
 ## Platform checks
 check_include_files(unistd.h HAVE_UNISTD_H)
@@ -315,3 +312,10 @@ target_link_libraries(ssh2 ${LIBRARIES})
 
 install(TARGETS ssh2 DESTINATION lib)
 install(FILES libssh2.h libssh2_publickey.h libssh2_sftp.h DESTINATION include)
+
+if(BUILD_SHARED_LIBS)
+  list(APPEND RUNTIME_DEPENDENCIES $<TARGET_FILE:ssh2>)
+endif()
+
+set(RUNTIME_DEPENDENCIES ${RUNTIME_DEPENDENCIES} CACHE INTERNAL
+    "Files that must be in the same directory as the executables at runtime.")

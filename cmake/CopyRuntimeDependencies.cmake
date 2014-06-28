@@ -36,12 +36,10 @@
 function(COPY_TO_TARGET_RUNTIME_DIRECTORY target)
   foreach(dependency ${ARGN})
 
-    get_filename_component(filename ${dependency} NAME)
-
     add_custom_command(TARGET ${target}
-      DEPENDS ${filename}
+      DEPENDS ${dependency}
       COMMAND ${CMAKE_COMMAND} -E copy ${dependency}
-      ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${filename})
+      ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
     install(PROGRAMS ${dependency} DESTINATION bin)
 
