@@ -41,7 +41,12 @@ include(CheckNonblockingSocketSupport)
 
 ## Options
 
+add_feature_info("Shared library" BUILD_SHARED_LIBS
+  "creating libssh2 as a shared library (.so/.dll)")
+
 option(ENABLE_ZLIB_COMPRESSION "Use zlib for compression")
+add_feature_info(Compression ENABLE_ZLIB_COMPRESSION
+  "using zlib for compression")
 if(ENABLE_ZLIB_COMPRESSION)
   find_package(ZLIB REQUIRED)
 
@@ -53,18 +58,22 @@ if(ENABLE_ZLIB_COMPRESSION)
 endif()
 
 option(ENABLE_CRYPT_NONE "Permit \"none\" cipher -- NOT RECOMMENDED")
+add_feature_info("\"none\" cipher" ENABLE_CRYPT_NONE "")
 if(ENABLE_CRYPT_NONE)
   add_definitions(-DLIBSSH2_CRYPT_NONE=1)
 endif()
 
 option(ENABLE_MAC_NONE "Permit \"none\" MAC -- NOT RECOMMMENDED")
+add_feature_info("\"none\" MAC" ENABLE_MAC_NONE "")
 if(ENABLE_MAC_NONE)
   add_definitions(-DLIBSSH2_MAC_NONE=1)
 endif()
 
-option(DISABLE_GEX_NEW "Disable \"new\" diffie-hellman-group-exchange-sha1
-method")
-if(NOT DISABLE_GEX_NEW)
+option(ENABLE_GEX_NEW
+  "Enable diffie-hellman-group-exchange-sha1 method" ON)
+add_feature_info("diffie-hellman-group-exchange-sha1" ENABLE_GEX_NEW
+  "\"new\" diffie-hellman-group-exchange-sha1 method")
+if(ENABLE_GEX_NEW)
   add_definitions(-DLIBSSH2_DH_GEX_NEW=1)
 endif()
 
@@ -74,7 +83,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 else()
   set(DEBUG_LOGGING_DEFAULT OFF)
 endif()
-option(ENABLE_DEBUG_LOGGING "Log execution with debug trace" ${DEBUG_LOGGING_DEFAULT})
+option(ENABLE_DEBUG_LOGGING "log execution with debug trace"
+  ${DEBUG_LOGGING_DEFAULT})
+add_feature_info(Logging ENABLE_DEBUG_LOGGING
+   "Logging of execution with debug trace")
 if(ENABLE_DEBUG_LOGGING)
   add_definitions(-DLIBSSH2DEBUG)
 endif()

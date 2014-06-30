@@ -42,6 +42,7 @@ option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(max_warnings)
+include(FeatureSummary)
 
 include_directories(include)
 
@@ -50,3 +51,5 @@ enable_testing()
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(tests)
+
+feature_summary(WHAT ALL)
