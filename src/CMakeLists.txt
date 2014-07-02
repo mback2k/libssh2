@@ -139,7 +139,7 @@ if(CRYPTO_BACKEND STREQUAL "OpenSSL" OR NOT CRYPTO_BACKEND)
       endif()
 
       if(DLL_LIBEAY32 AND DLL_SSLEAY32)
-        list(APPEND RUNTIME_DEPENDENCIES ${DLL_LIBEAY32} ${DLL_SSLEAY32})
+        list(APPEND _RUNTIME_DEPENDENCIES ${DLL_LIBEAY32} ${DLL_SSLEAY32})
       endif()
     endif()
 
@@ -326,8 +326,8 @@ install(TARGETS ssh2 DESTINATION lib)
 install(FILES libssh2.h libssh2_publickey.h libssh2_sftp.h DESTINATION include)
 
 if(BUILD_SHARED_LIBS)
-  list(APPEND RUNTIME_DEPENDENCIES $<TARGET_FILE:ssh2>)
+  list(APPEND _RUNTIME_DEPENDENCIES $<TARGET_FILE:ssh2>)
 endif()
 
-set(RUNTIME_DEPENDENCIES ${RUNTIME_DEPENDENCIES} CACHE INTERNAL
+set(RUNTIME_DEPENDENCIES ${_RUNTIME_DEPENDENCIES} CACHE INTERNAL
     "Files that must be in the same directory as the executables at runtime.")
