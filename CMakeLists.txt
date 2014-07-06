@@ -37,9 +37,6 @@ cmake_minimum_required(VERSION 2.8)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-include(max_warnings)
-include(FeatureSummary)
-
 project(libssh2)
 
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
@@ -56,13 +53,32 @@ set(LIBSSH2_VERSION_NUM 0x010404)
 set(LIBSSH2_VERSION
   "${LIBSSH2_VERSION_MAJOR}.${LIBSSH2_VERSION_MINOR}.${LIBSSH2_VERSION_PATCH}_DEV")
 
+install(
+  FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
+  DESTINATION .)
+
 configure_file(include/libssh2.h.in ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h)
 include_directories(include ${CMAKE_CURRENT_BINARY_DIR})
 
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h
+  include/libssh2_publickey.h
+  include/libssh2_sftp.h
+  DESTINATION include)
+
 enable_testing()
+
+include(max_warnings)
+include(FeatureSummary)
 
 add_subdirectory(src)
 add_subdirectory(example)
 add_subdirectory(tests)
 
 feature_summary(WHAT ALL)
+
+set(CPACK_PACKAGE_VERSION_MAJOR ${LIBSSH2_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${LIBSSH2_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${LIBSSH2_VERSION_PATCH})
+set(CPACK_PACKAGE_VERSION ${LIBSSH2_VERSION})
+include(CPack)

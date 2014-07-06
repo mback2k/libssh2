@@ -322,8 +322,10 @@ set(SOURCES
 add_library(ssh2 ${SOURCES})
 target_link_libraries(ssh2 ${LIBRARIES})
 
-install(TARGETS ssh2 DESTINATION lib)
-install(FILES libssh2.h libssh2_publickey.h libssh2_sftp.h DESTINATION include)
+install(TARGETS ssh2
+  RUNTIME DESTINATION bin
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib)
 
 if(BUILD_SHARED_LIBS)
   list(APPEND _RUNTIME_DEPENDENCIES $<TARGET_FILE:ssh2>)

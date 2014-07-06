@@ -41,7 +41,5 @@ function(COPY_TO_TARGET_RUNTIME_DIRECTORY target)
       COMMAND ${CMAKE_COMMAND} -E copy ${dependency}
       ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
 
-    install(PROGRAMS ${dependency} DESTINATION bin)
-
   endforeach()
 endfunction()
