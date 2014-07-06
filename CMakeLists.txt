@@ -35,16 +35,29 @@
 
 cmake_minimum_required(VERSION 2.8)
 
-project(libssh2)
-
-option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
-
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 include(max_warnings)
 include(FeatureSummary)
 
-include_directories(include)
+project(libssh2)
+
+option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
+
+set(LIBSSH2_VERSION_MAJOR 1)
+set(LIBSSH2_VERSION_MINOR 4)
+set(LIBSSH2_VERSION_PATCH 4)
+set(LIBSSH2_VERSION_NUM 0x010404)
+
+# We use underscore instead of dash when appending DEV in dev versions
+# just to make the BANNER define (used by src/session.c) be a valid
+# SSH banner. Release versions have no appended strings and may of
+# course not have dashes either.
+set(LIBSSH2_VERSION
+  "${LIBSSH2_VERSION_MAJOR}.${LIBSSH2_VERSION_MINOR}.${LIBSSH2_VERSION_PATCH}_DEV")
+
+configure_file(include/libssh2.h.in ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h)
+include_directories(include ${CMAKE_CURRENT_BINARY_DIR})
 
 enable_testing()
 
