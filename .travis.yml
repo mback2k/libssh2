@@ -15,7 +15,7 @@ env:
    - CRYPTO_BACKEND=Libgcrypt BUILD_SHARED_LIBS=OFF ENABLE_ZLIB_COMPRESSION=ON
    - CRYPTO_BACKEND=Libgcrypt BUILD_SHARED_LIBS=ON ENABLE_ZLIB_COMPRESSION=ON
 
-script: mkdir bin && cd bin && cmake -DCRYPTO_BACKEND=$CRYPTO_BACKEND -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DENABLE_ZLIB_COMPRESSION=$ENABLE_ZLIB_COMPRESSION .. && cmake --build . && cmake --build . --target test
+script: mkdir bin && cd bin && cmake -DCRYPTO_BACKEND=$CRYPTO_BACKEND -DBUILD_SHARED_LIBS=$BUILD_SHARED_LIBS -DENABLE_ZLIB_COMPRESSION=$ENABLE_ZLIB_COMPRESSION .. && cmake --build . && cmake --build . --target test && cmake --build . --target package
 
 before_install:
  - sudo apt-get install libgcrypt11-dev
