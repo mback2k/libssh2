@@ -24,6 +24,7 @@ env:
    - ADDRESS_SIZE=32 CRYPTO_BACKEND=Libgcrypt BUILD_SHARED_LIBS=ON ENABLE_ZLIB_COMPRESSION=ON
 
 before_install:
+  - sudo apt-get update
   - if [ $ADDRESS_SIZE = '64' ]; then sudo apt-get install -y libgcrypt11-dev libssl-dev zlib1g-dev; fi
   - if [ $ADDRESS_SIZE = '32' ]; then sudo apt-get install -y gcc-multilib libgcrypt11-dev:i386 libssl-dev:i386 zlib1g-dev:i386; fi
   - if [ $ADDRESS_SIZE = '32' ]; then export TOOLCHAIN_OPTION="-DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-Linux-32.cmake"; fi
