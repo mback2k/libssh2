@@ -33,52 +33,10 @@
 # USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
 # OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 2.8)
+# Cross-compile 32-bit binary on 64-bit linux host
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_VERSION 1)
+set(CMAKE_SYSTEM_PROCESSOR "i386")
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-project(libssh2 C)
-
-option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
-
-set(LIBSSH2_VERSION_MAJOR 1)
-set(LIBSSH2_VERSION_MINOR 4)
-set(LIBSSH2_VERSION_PATCH 4)
-set(LIBSSH2_VERSION_NUM 0x010404)
-
-# We use underscore instead of dash when appending DEV in dev versions
-# just to make the BANNER define (used by src/session.c) be a valid
-# SSH banner. Release versions have no appended strings and may of
-# course not have dashes either.
-set(LIBSSH2_VERSION
-  "${LIBSSH2_VERSION_MAJOR}.${LIBSSH2_VERSION_MINOR}.${LIBSSH2_VERSION_PATCH}_DEV")
-
-install(
-  FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
-  DESTINATION .)
-
-configure_file(include/libssh2.h.in ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h)
-include_directories(include ${CMAKE_CURRENT_BINARY_DIR})
-
-install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h
-  include/libssh2_publickey.h
-  include/libssh2_sftp.h
-  DESTINATION include)
-
-enable_testing()
-
-include(max_warnings)
-include(FeatureSummary)
-
-add_subdirectory(src)
-add_subdirectory(example)
-add_subdirectory(tests)
-
-feature_summary(WHAT ALL)
-
-set(CPACK_PACKAGE_VERSION_MAJOR ${LIBSSH2_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${LIBSSH2_VERSION_MINOR})
-set(CPACK_PACKAGE_VERSION_PATCH ${LIBSSH2_VERSION_PATCH})
-set(CPACK_PACKAGE_VERSION ${LIBSSH2_VERSION})
-include(CPack)
+set(CMAKE_CXX_COMPILER_ARG1 "-m32")
+set(CMAKE_C_COMPILER_ARG1 "-m32")
