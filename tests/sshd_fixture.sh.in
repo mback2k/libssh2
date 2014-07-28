@@ -36,6 +36,12 @@ trap "kill ${sshdpid}; echo signal killing sshd; exit 1;" EXIT
 
 sleep 3
 
+if ! kill -0 ${sshdpid}
+then
+    echo "SSHD exited before test started"
+    exit 1
+fi
+
 : Invoking $cmd...
 eval "$cmd"
 ec=$?
