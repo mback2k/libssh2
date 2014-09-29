@@ -41,27 +41,39 @@ project(libssh2 C)
 
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 
-set(LIBSSH2_VERSION_MAJOR 1)
-set(LIBSSH2_VERSION_MINOR 4)
-set(LIBSSH2_VERSION_PATCH 4)
-set(LIBSSH2_VERSION_NUM 0x010404)
+# Parse version
 
-# We use underscore instead of dash when appending DEV in dev versions
-# just to make the BANNER define (used by src/session.c) be a valid
-# SSH banner. Release versions have no appended strings and may of
-# course not have dashes either.
-set(LIBSSH2_VERSION
-  "${LIBSSH2_VERSION_MAJOR}.${LIBSSH2_VERSION_MINOR}.${LIBSSH2_VERSION_PATCH}_DEV")
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/include/libssh2.h _HEADER_CONTENTS)
+string(
+  REGEX REPLACE ".*#define LIBSSH2_VERSION[ \t]+\"([^\"]+)\".*" "\\1"
+  LIBSSH2_VERSION "${_HEADER_CONTENTS}")
+string(
+  REGEX REPLACE ".*#define LIBSSH2_VERSION_MAJOR[ \t]+([0-9]+).*" "\\1"
+  LIBSSH2_VERSION_MAJOR "${_HEADER_CONTENTS}")
+string(
+  REGEX REPLACE ".*#define LIBSSH2_VERSION_MINOR[ \t]+([0-9]+).*" "\\1"
+  LIBSSH2_VERSION_MINOR "${_HEADER_CONTENTS}")
+string(
+  REGEX REPLACE ".*#define LIBSSH2_VERSION_PATCH[ \t]+([0-9]+).*" "\\1"
+  LIBSSH2_VERSION_PATCH "${_HEADER_CONTENTS}")
+
+if(NOT LIBSSH2_VERSION OR
+   NOT LIBSSH2_VERSION_MAJOR MATCHES "^[0-9]+$" OR
+   NOT LIBSSH2_VERSION_MINOR MATCHES "^[0-9]+$" OR
+   NOT LIBSSH2_VERSION_PATCH MATCHES "^[0-9]+$")
+  message(
+    FATAL_ERROR
+    "Unable to parse version from"
+    "${CMAKE_CURRENT_SOURCE_DIR}/include/libssh2.h")
+endif()
+
 
 install(
   FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
   DESTINATION .)
 
-configure_file(include/libssh2.h.in ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h)
-include_directories(include ${CMAKE_CURRENT_BINARY_DIR})
-
 install(FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/libssh2.h
+  include/libssh2.h
   include/libssh2_publickey.h
   include/libssh2_sftp.h
   DESTINATION include)

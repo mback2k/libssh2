@@ -42,13 +42,17 @@
 
 #define LIBSSH2_COPYRIGHT "2004-2014 The libssh2 project and its contributors."
 
-#cmakedefine LIBSSH2_VERSION "@LIBSSH2_VERSION@"
+/* We use underscore instead of dash when appending DEV in dev versions just
+   to make the BANNER define (used by src/session.c) be a valid SSH
+   banner. Release versions have no appended strings and may of course not
+   have dashes either. */
+#define LIBSSH2_VERSION                             "1.4.4_DEV"
 
 /* The numeric version number is also available "in parts" by using these
    defines: */
-#cmakedefine LIBSSH2_VERSION_MAJOR @LIBSSH2_VERSION_MAJOR@
-#cmakedefine LIBSSH2_VERSION_MINOR @LIBSSH2_VERSION_MINOR@
-#cmakedefine LIBSSH2_VERSION_PATCH @LIBSSH2_VERSION_PATCH@
+#define LIBSSH2_VERSION_MAJOR                       1
+#define LIBSSH2_VERSION_MINOR                       4
+#define LIBSSH2_VERSION_PATCH                       4
 
 /* This is the numeric version of the libssh2 version number, meant for easier
    parsing and comparions by programs. The LIBSSH2_VERSION_NUM define will
@@ -65,7 +69,7 @@
    and it is always a greater number in a more recent release. It makes
    comparisons with greater than and less than work.
 */
-#cmakedefine LIBSSH2_VERSION_NUM @LIBSSH2_VERSION_NUM@
+#define LIBSSH2_VERSION_NUM                         0x010404
 
 /*
  * This is the date and time when the full source package was created. The
