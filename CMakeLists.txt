@@ -72,6 +72,8 @@ install(
   FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
   DESTINATION .)
 
+include_directories(include)
+
 install(FILES
   include/libssh2.h
   include/libssh2_publickey.h
