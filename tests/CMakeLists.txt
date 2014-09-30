@@ -50,7 +50,6 @@ check_include_files(winsock2.h HAVE_WINSOCK2_H)
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/libssh2_config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/libssh2_config.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}) # to find generated header
 
 set(TESTS
   simple
@@ -58,7 +57,8 @@ set(TESTS
 
 foreach(test ${TESTS})
   add_executable(test-${test} ${test}.c)
-  target_link_libraries(test-${test} ssh2)
+  target_link_libraries(test-${test} PRIVATE ssh2)
+  target_include_directories(test-${test} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   copy_to_target_runtime_directory(test-${test} ${RUNTIME_DEPENDENCIES})
 endforeach()
 

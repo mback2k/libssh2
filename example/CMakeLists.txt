@@ -64,7 +64,9 @@ set(EXAMPLES
 
 foreach(example ${EXAMPLES})
   add_executable(example-${example} ${example}.c)
-  target_link_libraries(example-${example} ssh2)
+  # to find generated header
+  target_include_directories(example-${example} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+  target_link_libraries(example-${example} PRIVATE ssh2)
   copy_to_target_runtime_directory(example-${example} ${RUNTIME_DEPENDENCIES})
 endforeach()
 
@@ -90,4 +92,3 @@ check_symbol_exists(__FUNCTION__ "" HAVE___FUNCTION__)
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/libssh2_config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/libssh2_config.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}) # to find generated header

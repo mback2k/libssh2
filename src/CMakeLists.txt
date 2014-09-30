@@ -39,58 +39,6 @@ include(CheckIncludeFiles)
 include(CheckTypeSize)
 include(CheckNonblockingSocketSupport)
 
-## Options
-
-add_feature_info("Shared library" BUILD_SHARED_LIBS
-  "creating libssh2 as a shared library (.so/.dll)")
-
-option(ENABLE_ZLIB_COMPRESSION "Use zlib for compression")
-add_feature_info(Compression ENABLE_ZLIB_COMPRESSION
-  "using zlib for compression")
-if(ENABLE_ZLIB_COMPRESSION)
-  find_package(ZLIB REQUIRED)
-
-  include_directories(${ZLIB_INCLUDE_DIRS})
-  list(APPEND LIBRARIES ${ZLIB_LIBRARIES})
-  if(ZLIB_FOUND)
-    add_definitions(-DLIBSSH2_HAVE_ZLIB=1)
-  endif()
-endif()
-
-option(ENABLE_CRYPT_NONE "Permit \"none\" cipher -- NOT RECOMMENDED")
-add_feature_info("\"none\" cipher" ENABLE_CRYPT_NONE "")
-if(ENABLE_CRYPT_NONE)
-  add_definitions(-DLIBSSH2_CRYPT_NONE=1)
-endif()
-
-option(ENABLE_MAC_NONE "Permit \"none\" MAC -- NOT RECOMMMENDED")
-add_feature_info("\"none\" MAC" ENABLE_MAC_NONE "")
-if(ENABLE_MAC_NONE)
-  add_definitions(-DLIBSSH2_MAC_NONE=1)
-endif()
-
-option(ENABLE_GEX_NEW
-  "Enable diffie-hellman-group-exchange-sha1 method" ON)
-add_feature_info("diffie-hellman-group-exchange-sha1" ENABLE_GEX_NEW
-  "\"new\" diffie-hellman-group-exchange-sha1 method")
-if(ENABLE_GEX_NEW)
-  add_definitions(-DLIBSSH2_DH_GEX_NEW=1)
-endif()
-
-# Enable debugging logging by default if the user configured a debug build
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(DEBUG_LOGGING_DEFAULT ON)
-else()
-  set(DEBUG_LOGGING_DEFAULT OFF)
-endif()
-option(ENABLE_DEBUG_LOGGING "log execution with debug trace"
-  ${DEBUG_LOGGING_DEFAULT})
-add_feature_info(Logging ENABLE_DEBUG_LOGGING
-   "Logging of execution with debug trace")
-if(ENABLE_DEBUG_LOGGING)
-  add_definitions(-DLIBSSH2DEBUG)
-endif()
-
 ## Cryptography backend choice
 
 set(CRYPTO_BACKEND
@@ -114,9 +62,8 @@ if(CRYPTO_BACKEND STREQUAL "OpenSSL" OR NOT CRYPTO_BACKEND)
   if(OPENSSL_FOUND)
     set(CRYPTO_BACKEND "OpenSSL")
     set(CRYPTO_SOURCES openssl.c openssl.h)
-    add_definitions(-DLIBSSH2_OPENSSL)
-
-    include_directories(${OPENSSL_INCLUDE_DIR})
+    list(APPEND PRIVATE_COMPILE_DEFINITIONS LIBSSH2_OPENSSL)
+    list(APPEND PRIVATE_INCLUDE_DIRECTORIES ${OPENSSL_INCLUDE_DIR})
     list(APPEND LIBRARIES ${OPENSSL_LIBRARIES})
 
     if (WIN32)
@@ -158,9 +105,8 @@ if(CRYPTO_BACKEND STREQUAL "Libgcrypt" OR NOT CRYPTO_BACKEND)
   if(LIBGCRYPT_FOUND)
     set(CRYPTO_BACKEND "Libgcrypt")
     set(CRYPTO_SOURCES libgcrypt.c libgcrypt.h)
-    add_definitions(-DLIBSSH2_LIBGCRYPT)
-
-    include_directories(${LIBGCRYPT_INCLUDE_DIRS})
+    list(APPEND PRIVATE_COMPILE_DEFINITIONS LIBSSH2_LIBGCRYPT)
+    list(APPEND PRIVATE_INCLUDE_DIRECTORIES ${LIBGCRYPT_INCLUDE_DIRS})
     list(APPEND LIBRARIES ${LIBGCRYPT_LIBRARIES})
   endif()
 endif()
@@ -173,7 +119,7 @@ if(CRYPTO_BACKEND STREQUAL "WinCNG" OR NOT CRYPTO_BACKEND)
   if(HAVE_BCRYPT_H)
     set(CRYPTO_BACKEND "WinCNG")
     set(CRYPTO_SOURCES wincng.c wincng.h)
-    add_definitions(-DLIBSSH2_WINCNG)
+    list(APPEND PRIVATE_COMPILE_DEFINITIONS LIBSSH2_WINCNG)
 
     set(HAVE_LIBCRYPT32 TRUE)
     list(APPEND LIBRARIES bcrypt)
@@ -195,6 +141,102 @@ endif()
 
 if(NOT CRYPTO_BACKEND)
   message(FATAL_ERROR "No suitable cryptography backend found.")
+endif()
+
+## Library definition
+
+set(SOURCES
+  ${CRYPTO_SOURCES}
+  agent.c
+  channel.c
+  channel.h
+  comp.c
+  comp.h
+  crypt.c
+  crypto.h
+  global.c
+  hostkey.c
+  keepalive.c
+  kex.c
+  knownhost.c
+  libssh2_priv.h
+  mac.c
+  mac.h
+  misc.c
+  misc.h
+  packet.c
+  packet.h
+  pem.c
+  publickey.c
+  scp.c
+  session.c
+  session.h
+  sftp.c
+  sftp.h
+  transport.c
+  transport.h
+  userauth.c
+  userauth.h
+  version.c)
+
+add_library(ssh2 ${SOURCES})
+target_compile_definitions(ssh2 PRIVATE ${PRIVATE_COMPILE_DEFINITIONS})
+target_include_directories(ssh2
+  PRIVATE ${PRIVATE_INCLUDE_DIRECTORIES}
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+
+## Options
+
+add_feature_info("Shared library" BUILD_SHARED_LIBS
+  "creating libssh2 as a shared library (.so/.dll)")
+
+option(ENABLE_ZLIB_COMPRESSION "Use zlib for compression")
+add_feature_info(Compression ENABLE_ZLIB_COMPRESSION
+  "using zlib for compression")
+if(ENABLE_ZLIB_COMPRESSION)
+  find_package(ZLIB REQUIRED)
+
+  target_include_directories(ssh2 PRIVATE ${ZLIB_INCLUDE_DIRS})
+  list(APPEND LIBRARIES ${ZLIB_LIBRARIES})
+  if(ZLIB_FOUND)
+    target_compile_definitions(ssh2 PRIVATE LIBSSH2_HAVE_ZLIB=1)
+  endif()
+endif()
+
+option(ENABLE_CRYPT_NONE "Permit \"none\" cipher -- NOT RECOMMENDED")
+add_feature_info("\"none\" cipher" ENABLE_CRYPT_NONE "")
+if(ENABLE_CRYPT_NONE)
+  target_compile_definitions(ssh2 PRIVATE LIBSSH2_CRYPT_NONE=1)
+endif()
+
+option(ENABLE_MAC_NONE "Permit \"none\" MAC -- NOT RECOMMMENDED")
+add_feature_info("\"none\" MAC" ENABLE_MAC_NONE "")
+if(ENABLE_MAC_NONE)
+  target_compile_definitions(ssh2 PRIVATE LIBSSH2_MAC_NONE=1)
+endif()
+
+option(ENABLE_GEX_NEW
+  "Enable diffie-hellman-group-exchange-sha1 method" ON)
+add_feature_info("diffie-hellman-group-exchange-sha1" ENABLE_GEX_NEW
+  "\"new\" diffie-hellman-group-exchange-sha1 method")
+if(ENABLE_GEX_NEW)
+  target_compile_definitions(ssh2 PRIVATE LIBSSH2_DH_GEX_NEW=1)
+endif()
+
+# Enable debugging logging by default if the user configured a debug build
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(DEBUG_LOGGING_DEFAULT ON)
+else()
+  set(DEBUG_LOGGING_DEFAULT OFF)
+endif()
+option(ENABLE_DEBUG_LOGGING "log execution with debug trace"
+  ${DEBUG_LOGGING_DEFAULT})
+add_feature_info(Logging ENABLE_DEBUG_LOGGING
+   "Logging of execution with debug trace")
+if(ENABLE_DEBUG_LOGGING)
+  target_compile_definitions(ssh2 PRIVATE LIBSSH2DEBUG)
 endif()
 
 ## Platform checks
@@ -272,55 +314,27 @@ set(CMAKE_REQUIRED_LIBRARIES ${SAVE_CMAKE_REQUIRED_LIBRARIES})
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/libssh2_config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/libssh2_config.h)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}) # to find generated header
+# to find generated header
+target_include_directories(ssh2 PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 # Check for the OS.
 # Daniel's note: this should not be necessary and we need to work to
 # get this removed.
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  add_definitions(-DLIBSSH2_WIN32)
+  target_compile_definitions(ssh2 PRIVATE LIBSSH2_WIN32)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-  add_definitions(-DLIBSSH2_DARWIN)
+  target_compile_definitions(ssh2 PRIVATE LIBSSH2_DARWIN)
 endif()
 
-## Library definition
+target_link_libraries(ssh2 PRIVATE ${LIBRARIES})
 
-set(SOURCES
-  ${CRYPTO_SOURCES}
-  agent.c
-  channel.c
-  channel.h
-  comp.c
-  comp.h
-  crypt.c
-  crypto.h
-  global.c
-  hostkey.c
-  keepalive.c
-  kex.c
-  knownhost.c
-  libssh2_priv.h
-  mac.c
-  mac.h
-  misc.c
-  misc.h
-  packet.c
-  packet.h
-  pem.c
-  publickey.c
-  scp.c
-  session.c
-  session.h
-  sftp.c
-  sftp.h
-  transport.c
-  transport.h
-  userauth.c
-  userauth.h
-  version.c)
+## Installation
 
-add_library(ssh2 ${SOURCES})
-target_link_libraries(ssh2 ${LIBRARIES})
+install(FILES
+  ${CMAKE_SOURCE_DIR}/include/libssh2.h
+  ${CMAKE_SOURCE_DIR}/include/libssh2_publickey.h
+  ${CMAKE_SOURCE_DIR}/include/libssh2_sftp.h
+  DESTINATION include)
 
 install(TARGETS ssh2
   RUNTIME DESTINATION bin
