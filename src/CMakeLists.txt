@@ -326,7 +326,12 @@ elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
   target_compile_definitions(ssh2 PRIVATE LIBSSH2_DARWIN)
 endif()
 
-target_link_libraries(ssh2 PRIVATE ${LIBRARIES})
+if(CMAKE_VERSION VERSION_LESS "2.8.12")
+  # Fall back to over-linking dependencies
+  target_link_libraries(ssh2 ${LIBRARIES})
+else()
+  target_link_libraries(ssh2 PRIVATE ${LIBRARIES})
+endif()
 
 ## Installation
 

@@ -57,7 +57,7 @@ set(TESTS
 
 foreach(test ${TESTS})
   add_executable(test-${test} ${test}.c)
-  target_link_libraries(test-${test} PRIVATE ssh2)
+  target_link_libraries(test-${test} ssh2)
   target_include_directories(test-${test} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   copy_to_target_runtime_directory(test-${test} ${RUNTIME_DEPENDENCIES})
 endforeach()

@@ -66,7 +66,7 @@ foreach(example ${EXAMPLES})
   add_executable(example-${example} ${example}.c)
   # to find generated header
   target_include_directories(example-${example} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-  target_link_libraries(example-${example} PRIVATE ssh2)
+  target_link_libraries(example-${example} ssh2)
   copy_to_target_runtime_directory(example-${example} ${RUNTIME_DEPENDENCIES})
 endforeach()
 
