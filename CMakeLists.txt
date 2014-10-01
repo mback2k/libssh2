@@ -72,14 +72,21 @@ install(
   FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
   DESTINATION .)
 
-enable_testing()
-
 include(max_warnings)
 include(FeatureSummary)
 
 add_subdirectory(src)
-add_subdirectory(example)
-add_subdirectory(tests)
+
+option(BUILD_EXAMPLES "Build libssh2 examples" ON)
+if(BUILD_EXAMPLES)
+  add_subdirectory(example)
+endif()
+
+option(BUILD_TESTING "Build libssh2 test suite" ON)
+if(BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
 
 feature_summary(WHAT ALL)
 
