@@ -179,9 +179,9 @@ set(SOURCES
   userauth.h
   version.c)
 
-add_library(ssh2 ${SOURCES})
-target_compile_definitions(ssh2 PRIVATE ${PRIVATE_COMPILE_DEFINITIONS})
-target_include_directories(ssh2
+add_library(libssh2 ${SOURCES})
+target_compile_definitions(libssh2 PRIVATE ${PRIVATE_COMPILE_DEFINITIONS})
+target_include_directories(libssh2
   PRIVATE ${PRIVATE_INCLUDE_DIRECTORIES}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
@@ -198,23 +198,23 @@ add_feature_info(Compression ENABLE_ZLIB_COMPRESSION
 if(ENABLE_ZLIB_COMPRESSION)
   find_package(ZLIB REQUIRED)
 
-  target_include_directories(ssh2 PRIVATE ${ZLIB_INCLUDE_DIRS})
+  target_include_directories(libssh2 PRIVATE ${ZLIB_INCLUDE_DIRS})
   list(APPEND LIBRARIES ${ZLIB_LIBRARIES})
   if(ZLIB_FOUND)
-    target_compile_definitions(ssh2 PRIVATE LIBSSH2_HAVE_ZLIB=1)
+    target_compile_definitions(libssh2 PRIVATE LIBSSH2_HAVE_ZLIB=1)
   endif()
 endif()
 
 option(ENABLE_CRYPT_NONE "Permit \"none\" cipher -- NOT RECOMMENDED")
 add_feature_info("\"none\" cipher" ENABLE_CRYPT_NONE "")
 if(ENABLE_CRYPT_NONE)
-  target_compile_definitions(ssh2 PRIVATE LIBSSH2_CRYPT_NONE=1)
+  target_compile_definitions(libssh2 PRIVATE LIBSSH2_CRYPT_NONE=1)
 endif()
 
 option(ENABLE_MAC_NONE "Permit \"none\" MAC -- NOT RECOMMMENDED")
 add_feature_info("\"none\" MAC" ENABLE_MAC_NONE "")
 if(ENABLE_MAC_NONE)
-  target_compile_definitions(ssh2 PRIVATE LIBSSH2_MAC_NONE=1)
+  target_compile_definitions(libssh2 PRIVATE LIBSSH2_MAC_NONE=1)
 endif()
 
 option(ENABLE_GEX_NEW
@@ -222,7 +222,7 @@ option(ENABLE_GEX_NEW
 add_feature_info("diffie-hellman-group-exchange-sha1" ENABLE_GEX_NEW
   "\"new\" diffie-hellman-group-exchange-sha1 method")
 if(ENABLE_GEX_NEW)
-  target_compile_definitions(ssh2 PRIVATE LIBSSH2_DH_GEX_NEW=1)
+  target_compile_definitions(libssh2 PRIVATE LIBSSH2_DH_GEX_NEW=1)
 endif()
 
 # Enable debugging logging by default if the user configured a debug build
@@ -236,7 +236,7 @@ option(ENABLE_DEBUG_LOGGING "log execution with debug trace"
 add_feature_info(Logging ENABLE_DEBUG_LOGGING
    "Logging of execution with debug trace")
 if(ENABLE_DEBUG_LOGGING)
-  target_compile_definitions(ssh2 PRIVATE LIBSSH2DEBUG)
+  target_compile_definitions(libssh2 PRIVATE LIBSSH2DEBUG)
 endif()
 
 ## Platform checks
@@ -315,22 +315,22 @@ configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/libssh2_config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/libssh2_config.h)
 # to find generated header
-target_include_directories(ssh2 PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(libssh2 PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 
 # Check for the OS.
 # Daniel's note: this should not be necessary and we need to work to
 # get this removed.
 if(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
-  target_compile_definitions(ssh2 PRIVATE LIBSSH2_WIN32)
+  target_compile_definitions(libssh2 PRIVATE LIBSSH2_WIN32)
 elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
-  target_compile_definitions(ssh2 PRIVATE LIBSSH2_DARWIN)
+  target_compile_definitions(libssh2 PRIVATE LIBSSH2_DARWIN)
 endif()
 
 if(CMAKE_VERSION VERSION_LESS "2.8.12")
   # Fall back to over-linking dependencies
-  target_link_libraries(ssh2 ${LIBRARIES})
+  target_link_libraries(libssh2 ${LIBRARIES})
 else()
-  target_link_libraries(ssh2 PRIVATE ${LIBRARIES})
+  target_link_libraries(libssh2 PRIVATE ${LIBRARIES})
 endif()
 
 ## Installation
@@ -341,13 +341,13 @@ install(FILES
   ${CMAKE_SOURCE_DIR}/include/libssh2_sftp.h
   DESTINATION include)
 
-install(TARGETS ssh2
+install(TARGETS libssh2
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib)
 
 if(BUILD_SHARED_LIBS)
-  list(APPEND _RUNTIME_DEPENDENCIES $<TARGET_FILE:ssh2>)
+  list(APPEND _RUNTIME_DEPENDENCIES $<TARGET_FILE:libssh2>)
 endif()
 
 set(RUNTIME_DEPENDENCIES ${_RUNTIME_DEPENDENCIES} CACHE INTERNAL
