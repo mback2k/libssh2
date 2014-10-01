@@ -42,6 +42,10 @@ function(ADD_TARGET_TO_COPY_DEPENDENCIES)
   cmake_parse_arguments(COPY
     "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
+  if(NOT COPY_DEPENDENCIES)
+    return()
+  endif()
+
   # Using a custom target to drive custom commands stops multiple
   # parallel builds trying to kick off the commands at the same time
   add_custom_target(${COPY_TARGET} DEPENDS ${COPY_DEPENDENCIES})
