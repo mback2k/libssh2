@@ -59,8 +59,13 @@ foreach(test ${TESTS})
   add_executable(test-${test} ${test}.c)
   target_link_libraries(test-${test} ssh2)
   target_include_directories(test-${test} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-  copy_to_target_runtime_directory(test-${test} ${RUNTIME_DEPENDENCIES})
+  list(APPEND TEST_TARGETS test-${test})
 endforeach()
+
+add_target_to_copy_dependencies(
+  TARGET copy_test_dependencies
+  DEPENDENCIES ${RUNTIME_DEPENDENCIES}
+  BEFORE_TARGETS ${TEST_TARGETS})
 
 # TODO convert mansyntax.sh into CMake script.
 # XXX Just because we can find all three programs, doesn't mean sh can

@@ -64,11 +64,15 @@ set(EXAMPLES
 
 foreach(example ${EXAMPLES})
   add_executable(example-${example} ${example}.c)
+  list(APPEND EXAMPLE_TARGETS example-${example})
   # to find generated header
   target_include_directories(example-${example} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   target_link_libraries(example-${example} ssh2)
-  copy_to_target_runtime_directory(example-${example} ${RUNTIME_DEPENDENCIES})
 endforeach()
+add_target_to_copy_dependencies(
+  TARGET copy_example_dependencies
+  DEPENDENCIES ${RUNTIME_DEPENDENCIES}
+  BEFORE_TARGETS ${EXAMPLE_TARGETS})
 
 ## Platform checks
 check_include_files(inttypes.h HAVE_INTTYPES_H)

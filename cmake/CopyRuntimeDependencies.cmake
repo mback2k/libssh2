@@ -33,13 +33,37 @@
 # USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
 # OF SUCH DAMAGE.
 
-function(COPY_TO_TARGET_RUNTIME_DIRECTORY target)
-  foreach(dependency ${ARGN})
+include(CMakeParseArguments)
 
-    add_custom_command(TARGET ${target}
-      DEPENDS ${dependency}
-      COMMAND ${CMAKE_COMMAND} -E copy ${dependency}
-      ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR})
+function(ADD_TARGET_TO_COPY_DEPENDENCIES)
+  set(options)
+  set(oneValueArgs TARGET)
+  set(multiValueArgs DEPENDENCIES BEFORE_TARGETS)
+  cmake_parse_arguments(COPY
+    "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+  # Using a custom target to drive custom commands stops multiple
+  # parallel builds trying to kick off the commands at the same time
+  add_custom_target(${COPY_TARGET} DEPENDS ${COPY_DEPENDENCIES})
+  add_dependencies(${COPY_TARGET} ${COPY_DEPENDENCIES})
+
+  foreach(target ${COPY_BEFORE_TARGETS})
+    add_dependencies(${target} ${COPY_TARGET})
+  endforeach()
+
+  foreach(dependency ${COPY_DEPENDENCIES})
+
+    get_filename_component(DEP_NAME ${dependency} NAME)
+    set(RUNTIME_DEP_PATH ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${DEP_NAME})
+    list(APPEND RUNTIME_DEPS ${RUNTIME_DEP_PATH})
+
+    add_custom_command(
+      TARGET ${COPY_TARGET}
+      COMMAND ${CMAKE_COMMAND}
+      ARGS -E copy ${dependency} ${RUNTIME_DEP_PATH}
+      COMMENT "Copying ${dependency} for ${target}"
+      VERBATIM)
 
   endforeach()
+
 endfunction()
