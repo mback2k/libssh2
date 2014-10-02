@@ -13,16 +13,16 @@ sshdpid=$!
 
 trap "kill ${sshdpid}; echo signal killing sshd; exit 1;" EXIT
 
-: "started sshd (${sshdpid})"
+echo "started sshd (${sshdpid})"
 
 sleep 1
 
-: Invoking $cmd...
+echo Invoking $cmd...
 eval $cmd
 ec=$?
-: Self-test exit code $ec
+echo Self-test exit code $ec
 
-: "killing sshd (${sshdpid})"
+echo "killing sshd (${sshdpid})"
 kill "${sshdpid}" > /dev/null 2>&1
 trap "" EXIT
 exit $ec
