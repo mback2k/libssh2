@@ -188,7 +188,7 @@ target_include_directories(libssh2
   PRIVATE ${PRIVATE_INCLUDE_DIRECTORIES}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>)
+    $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>)
 
 ## Options
 
