@@ -38,6 +38,7 @@ include(CheckFunctionExistsMayNeedLibrary)
 include(CheckIncludeFiles)
 include(CheckTypeSize)
 include(CheckNonblockingSocketSupport)
+include(SocketLibraries)
 
 ## Cryptography backend choice
 
@@ -281,31 +282,7 @@ else()
   check_function_exists(poll HAVE_POLL)
 endif()
 
-# Some systems have socket function in a library
-# (Solaris -lsocket/-lnsl, Windows -lws2_32)
-if(CMAKE_SYSTEM_NAME STREQUAL "Windows" AND CMAKE_SIZEOF_VOID_P EQUAL 4)
-  # x86 Windows uses STDCALL for these functions, so their names are mangled,
-  # meaning the platform checks don't work. Hardcoding these until we get
-  # a better solution.
-  set(HAVE_SOCKET 1)
-  set(HAVE_SELECT 1)
-  set(HAVE_INET_ADDR 1)
-  set(NEED_LIB_WS2_32 1)
-else()
-  check_function_exists_may_need_library(socket HAVE_SOCKET socket ws2_32)
-  check_function_exists_may_need_library(select HAVE_SELECT ws2_32)
-  check_function_exists_may_need_library(inet_addr HAVE_INET_ADDR nsl ws2_32)
-endif()
-
-if(NEED_LIB_SOCKET)
-  list(APPEND LIBRARIES socket)
-endif()
-if(NEED_LIB_NSL)
-  list(APPEND LIBRARIES nsl)
-endif()
-if(NEED_LIB_WS2_32)
-  list(APPEND LIBRARIES ws2_32)
-endif()
+append_needed_socket_libraries(LIBRARIES)
 
 # Non-blocking socket support tests.  Must be after after library tests to
 # link correctly

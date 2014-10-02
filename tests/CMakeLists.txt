@@ -38,6 +38,7 @@ include(CheckFunctionExists)
 include(CheckSymbolExists)
 include(BundleUtilities)
 include(CopyRuntimeDependencies)
+include(SocketLibraries)
 
 ## Platform checks
 check_include_files(inttypes.h HAVE_INTTYPES_H)
@@ -55,9 +56,11 @@ set(TESTS
   simple
   ssh2)
 
+append_needed_socket_libraries(LIBRARIES)
+
 foreach(test ${TESTS})
   add_executable(test-${test} ${test}.c)
-  target_link_libraries(test-${test} libssh2)
+  target_link_libraries(test-${test} libssh2 ${LIBRARIES})
   target_include_directories(test-${test} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
   list(APPEND TEST_TARGETS test-${test})
 endforeach()

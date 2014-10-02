@@ -37,6 +37,7 @@ include(CheckIncludeFiles)
 include(CheckFunctionExists)
 include(CheckSymbolExists)
 include(CopyRuntimeDependencies)
+include(SocketLibraries)
 
 set(EXAMPLES
   direct_tcpip
@@ -62,12 +63,14 @@ set(EXAMPLES
   subsystem_netconf
   tcpip-forward)
 
+append_needed_socket_libraries(LIBRARIES)
+
 foreach(example ${EXAMPLES})
   add_executable(example-${example} ${example}.c)
   list(APPEND EXAMPLE_TARGETS example-${example})
   # to find generated header
   target_include_directories(example-${example} PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
-  target_link_libraries(example-${example} libssh2)
+  target_link_libraries(example-${example} libssh2 ${LIBRARIES})
 endforeach()
 add_target_to_copy_dependencies(
   TARGET copy_example_dependencies
