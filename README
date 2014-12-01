@@ -61,8 +61,8 @@ options deserve additional comments:
 		server using dh-gex, try this option to fallback on
 		the older more reliable method.
 
-  * --with-libgcrypt
-  * --without-libgcrypt
+	* --with-libgcrypt
+	* --without-libgcrypt
 	* --with-libgcrypt-prefix=DIR
 
 		libssh2 can use the Libgcrypt library
