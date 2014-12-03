@@ -8,90 +8,114 @@ Web site: http://www.libssh2.org/
 
 Mailing list: http://cool.haxx.se/mailman/listinfo/libssh2-devel
 
-Generic installation instructions are in INSTALL.  Some ./configure
-options deserve additional comments:
+To build libssh2 you will need [CMake][1] v2.8 or later and one of the
+following cryptography libraries:
 
-	* --enable-crypt-none
+* OpenSSL
+* Libgcrypt
+* WinCNG
 
-		The SSH2 Transport allows for unencrypted data
-		transmission using the "none" cipher.  Because this is
-		such a huge security hole, it is typically disabled on
-		SSH2 implementations and is disabled in libssh2 by
-		default as well.
+Getting started
+---------------
 
-		Enabling this option will allow for "none" as a
-		negotiable method, however it still requires that the
-		method be advertized by the remote end and that no
-		more-preferable methods are available.
+If you are happy with the default options, make a new build directory,
+change to it, and run the following commands:
 
-	* --enable-mac-none
+  cmake <libssh2-source-directory>
+  cmake --build .
 
-		The SSH2 Transport also allows implementations to
-		forego a message authentication code.  While this is
-		less of a security risk than using a "none" cipher, it
-		is still not recommended as disabling MAC hashes
-		removes a layer of security.
+libssh2 will be built as a static library and will use any
+cryptography library available.
 
-		Enabling this option will allow for "none" as a
-		negotiable method, however it still requires that the
-		method be advertized by the remote end and that no
-		more-preferable methods are available.
+Customising the build
+---------------------
 
-	* --disable-gex-new
+Of course, you might want to customise the build options.  You can
+pass the options to CMake on the command line:
 
-		The diffie-hellman-group-exchange-sha1 (dh-gex) key
-		exchange method originally defined an exchange
-		negotiation using packet type 30 to request a
-		generation pair based on a single target value.  Later
-		refinement of dh-gex provided for range and target
-		values.  By default libssh2 will use the newer range
-		method.
+  cmake -D<option>=<value> <libssh2-source-directory>
 
-		If you experience trouble connecting to an old SSH
-		server using dh-gex, try this option to fallback on
-		the older more reliable method.
+The following options are available:
 
-  	* --with-libgcrypt
-  	* --without-libgcrypt
-	* --with-libgcrypt-prefix=DIR
+ * `BUILD_SHARED_LIBS=OFF`
 
-		libssh2 can use the Libgcrypt library
-		(http://www.gnupg.org/) for cryptographic operations.
-		Either Libgcrypt or OpenSSL is required.
+    Determines whether libssh2 is built as a static library or as a
+    shared library (.dll/.so).  Can be `ON` or `OFF`.
 
-		Configure will attempt to locate Libgcrypt
-		automatically.
+ * `CRYPTO_BACKEND=`
 
- 		If your installation of Libgcrypt is in another
-		location, specify it using --with-libgcrypt-prefix.
+    Chooses a specific cryptography library to use for cryptographic
+    operations.  Can be `OpenSSL` (http://www.openssl.org),
+    `Libgcrypt` (http://www.gnupg.org/), `WinCNG` (Windows Vista+) or
+    blank to use any library available.
 
-	* --with-openssl
-	* --without-openssl
-	* --with-libssl-prefix=[DIR]
+    CMake will attempt to locate the libraries automatically.  See [2]
+    for more information.
 
-		libssh2 can use the OpenSSL library
-		(http://www.openssl.org) for cryptographic operations.
-		Either Libgcrypt or OpenSSL is required.
+ * `ENABLE_ZLIB_COMPRESSION=OFF`
 
-		Configure will attempt to locate OpenSSL in the
-		default location.
+    Will use zlib (http://www.zlib.org) for payload compression.  Can
+    be `ON` or `OFF`.
 
-		If your installation of OpenSSL is in another
-		location, specify it using --with-libssl-prefix.
+ * `ENABLE_CRYPT_NONE=OFF`
 
-	* --with-libz
-	* --without-libz
-	* --with-libz-prefix=[DIR]
+    The SSH2 Transport allows for unencrypted data transmission using
+    the "none" cipher.  Because this is such a huge security hole, it
+    is typically disabled on SSH2 implementations and is disabled in
+    libssh2 by default as well.
 
-		If present, libssh2 will attempt to use the zlib
-		(http://www.zlib.org) for payload compression, however
-		zlib is not required.
+    Enabling this option will allow for "none" as a negotiable method,
+    however it still requires that the method be advertized by the
+    remote end and that no more-preferable methods are available.
 
-		If your installation of Libz is in another location,
-		specify it using --with-libz-prefix.
+ * `ENABLE_MAC_NONE=OFF`
 
-	* --enable-debug
+    The SSH2 Transport also allows implementations to forego a message
+    authentication code.  While this is less of a security risk than
+    using a "none" cipher, it is still not recommended as disabling
+    MAC hashes removes a layer of security.
 
-		Will make the build use more pedantic and strict compiler
-		options as well as enable the libssh2_trace() function (for
-		showing debug traces).
+    Enabling this option will allow for "none" as a negotiable method,
+    however it still requires that the method be advertized by the
+    remote end and that no more-preferable methods are available.
+
+ * `ENABLE_GEX_NEW=ON`
+
+    The diffie-hellman-group-exchange-sha1 (dh-gex) key exchange
+    method originally defined an exchange negotiation using packet
+    type 30 to request a generation pair based on a single target
+    value.  Later refinement of dh-gex provided for range and target
+    values.  By default libssh2 will use the newer range method.
+
+    If you experience trouble connecting to an old SSH server using
+    dh-gex, try this option to fallback on the older more reliable
+    method.
+
+ * `ENABLE_DEBUG_LOGGING=ON` in Debug, `=OFF` in Release
+
+    Will enable the libssh2_trace() function for showing debug traces.
+
+Build tools
+-----------
+
+The previous examples used CMake to start the build using:
+
+  cmake --build .
+
+Alternatively, once CMake has configured your project, you can just
+use your own build tool, e.g GNU make, Visual Studio, etc., from that
+point onwards.
+
+Tests
+-----
+
+To test the build, run the appropriate test target for your build
+system.  For example:
+
+  cmake --build . --target test
+or
+  cmake --build . --target RUN_TESTS
+
+
+[1] http://www.cmake.org/cmake/resources/software.html
+[2] http://www.cmake.org/cmake/help/v3.0/manual/cmake-packages.7.html
