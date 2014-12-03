@@ -180,6 +180,10 @@ set(SOURCES
   userauth.h
   version.c)
 
+if(WIN32)
+  list(APPEND SOURCES ${CMAKE_SOURCE_DIR}/win32/libssh2.rc)
+endif()
+
 add_library(libssh2 ${SOURCES})
 # we want it to be called libssh2 on all platforms
 set_target_properties(libssh2 PROPERTIES PREFIX "")
