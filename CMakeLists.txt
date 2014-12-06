@@ -70,7 +70,7 @@ endif()
 
 install(
   FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
-  DESTINATION .)
+  DESTINATION share/libssh2)
 
 include(max_warnings)
 include(FeatureSummary)
