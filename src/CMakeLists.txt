@@ -66,6 +66,7 @@ if(CRYPTO_BACKEND STREQUAL "OpenSSL" OR NOT CRYPTO_BACKEND)
     list(APPEND PRIVATE_COMPILE_DEFINITIONS LIBSSH2_OPENSSL)
     list(APPEND PRIVATE_INCLUDE_DIRECTORIES ${OPENSSL_INCLUDE_DIR})
     list(APPEND LIBRARIES ${OPENSSL_LIBRARIES})
+    list(APPEND PC_REQUIRES_PRIVATE libssl libcrypto)
 
     if (WIN32)
       find_file(DLL_LIBEAY32
@@ -109,6 +110,7 @@ if(CRYPTO_BACKEND STREQUAL "Libgcrypt" OR NOT CRYPTO_BACKEND)
     list(APPEND PRIVATE_COMPILE_DEFINITIONS LIBSSH2_LIBGCRYPT)
     list(APPEND PRIVATE_INCLUDE_DIRECTORIES ${LIBGCRYPT_INCLUDE_DIRS})
     list(APPEND LIBRARIES ${LIBGCRYPT_LIBRARIES})
+    list(APPEND PC_LIBS -lgcrypt)
   endif()
 endif()
 
@@ -124,6 +126,7 @@ if(CRYPTO_BACKEND STREQUAL "WinCNG" OR NOT CRYPTO_BACKEND)
 
     set(HAVE_LIBCRYPT32 TRUE)
     list(APPEND LIBRARIES bcrypt)
+    list(APPEND PC_LIBS -lbcrypt)
 
     check_include_files(ntdef.h HAVE_NTDEF_H)
     check_include_files(ntstatus.h HAVE_NTSTATUS_H)
@@ -133,6 +136,7 @@ if(CRYPTO_BACKEND STREQUAL "WinCNG" OR NOT CRYPTO_BACKEND)
 
     if(HAVE_WINCRYPT_H)
       list(APPEND LIBRARIES crypt32)
+      list(APPEND PC_LIBS -lcrypt32)
     endif()
 
   elseif(${SPECIFIC_CRYPTO_REQUIREMENT} STREQUAL ${REQUIRED})
@@ -208,6 +212,7 @@ if(ENABLE_ZLIB_COMPRESSION)
 
   target_include_directories(libssh2 PRIVATE ${ZLIB_INCLUDE_DIRS})
   list(APPEND LIBRARIES ${ZLIB_LIBRARIES})
+  list(APPEND PC_REQUIRES_PRIVATE zlib)
   if(ZLIB_FOUND)
     target_compile_definitions(libssh2 PRIVATE LIBSSH2_HAVE_ZLIB=1)
   endif()
@@ -347,6 +352,18 @@ install(EXPORT Libssh2Config NAMESPACE Libssh2:: DESTINATION lib/cmake/libssh2)
 # create Libssh2Config.cmake
 export(TARGETS libssh2 NAMESPACE Libssh2:: FILE Libssh2Config.cmake)
 export(PACKAGE Libssh2) # register it
+
+## Export a .pc file for client projects not using CMaek
+if(PC_REQUIRES_PRIVATE)
+  string(REPLACE ";" "," PC_REQUIRES_PRIVATE "${PC_REQUIRES_PRIVATE}")
+endif()
+if(PC_LIBS)
+  string(REPLACE ";" " " PC_LIBS "${PC_LIBS}")
+endif()
+configure_file(libssh2.pc.in libssh2.pc @ONLY)
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/libssh2.pc
+  DESTINATION lib/pkgconfig)
 
 ## Versioning
 

@@ -38,6 +38,8 @@ cmake_minimum_required(VERSION 2.8.11)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 project(libssh2 C)
+set(PROJECT_URL "http://www.libssh2.org/")
+set(PROJECT_DESCRIPTION "Library for SSH-based communication")
 
 option(BUILD_SHARED_LIBS "Build Shared Libraries" OFF)
 
