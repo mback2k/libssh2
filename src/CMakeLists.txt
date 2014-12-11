@@ -370,6 +370,10 @@ install(
 
 ## Versioning
 
+set_target_properties(libssh2 PROPERTIES
+  SOVERSION 1
+  VERSION 1.0.1)
+
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/Libssh2ConfigVersion.cmake
