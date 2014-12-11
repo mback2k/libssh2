@@ -200,4 +200,5 @@ set(MAN_PAGES
   libssh2_userauth_publickey_fromfile_ex.3
   libssh2_version.3)
 
-install(FILES ${MAN_PAGES} DESTINATION share/man/man3)
+include(GNUInstallDirs)
+install(FILES ${MAN_PAGES} DESTINATION ${CMAKE_INSTALL_MANDIR}/man3)

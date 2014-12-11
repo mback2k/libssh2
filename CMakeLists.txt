@@ -69,10 +69,10 @@ if(NOT LIBSSH2_VERSION OR
     "${CMAKE_CURRENT_SOURCE_DIR}/include/libssh2.h")
 endif()
 
-
+include(GNUInstallDirs)
 install(
   FILES AUTHORS COPYING HACKING README RELEASE-NOTES NEWS
-  DESTINATION share/libssh2)
+  DESTINATION ${CMAKE_INSTALL_DOCDIR})
 
 include(max_warnings)
 include(FeatureSummary)

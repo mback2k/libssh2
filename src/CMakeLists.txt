@@ -150,6 +150,7 @@ endif()
 
 ## Library definition
 
+include(GNUInstallDirs)
 set(SOURCES
   ${CRYPTO_SOURCES}
   agent.c
@@ -197,7 +198,7 @@ target_include_directories(libssh2
   PRIVATE ${PRIVATE_INCLUDE_DIRECTORIES}
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>)
+    $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}>)
 
 ## Options
 
@@ -328,13 +329,13 @@ install(FILES
   ${CMAKE_SOURCE_DIR}/include/libssh2.h
   ${CMAKE_SOURCE_DIR}/include/libssh2_publickey.h
   ${CMAKE_SOURCE_DIR}/include/libssh2_sftp.h
-  DESTINATION include)
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(TARGETS libssh2
   EXPORT Libssh2Config
-  RUNTIME DESTINATION bin
-  LIBRARY DESTINATION lib
-  ARCHIVE DESTINATION lib)
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 if(BUILD_SHARED_LIBS)
   list(APPEND _RUNTIME_DEPENDENCIES $<TARGET_FILE:libssh2>)
@@ -346,7 +347,9 @@ set(RUNTIME_DEPENDENCIES ${_RUNTIME_DEPENDENCIES} CACHE INTERNAL
 # Package config
 
 ## During package installation, install Libssh2Config.cmake
-install(EXPORT Libssh2Config NAMESPACE Libssh2:: DESTINATION lib/cmake/libssh2)
+install(EXPORT Libssh2Config
+  NAMESPACE Libssh2::
+  DESTINATION lib/cmake/libssh2)
 
 ## During build, register directly from build tree
 # create Libssh2Config.cmake
@@ -363,7 +366,7 @@ endif()
 configure_file(libssh2.pc.in libssh2.pc @ONLY)
 install(
   FILES ${CMAKE_CURRENT_BINARY_DIR}/libssh2.pc
-  DESTINATION lib/pkgconfig)
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
 
 ## Versioning
 
