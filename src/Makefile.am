@@ -17,7 +17,7 @@ include ../Makefile.inc
 
 libssh2_la_SOURCES = $(CSOURCES) $(HHEADERS)
 
-EXTRA_DIST = libssh2_config.h.in NMakefile
+EXTRA_DIST = libssh2_config.h.in
 
 lib_LTLIBRARIES = libssh2.la
 

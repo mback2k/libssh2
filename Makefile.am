@@ -18,19 +18,11 @@ NETWAREFILES =  nw/keepscreen.c \
 	nw/GNUmakefile \
 	nw/test/GNUmakefile
 
-DSP = win32/libssh2.dsp
-VCPROJ = win32/libssh2.vcproj
-
-DISTCLEANFILES = $(DSP)
-
 VMSFILES = vms/libssh2_make_example.dcl vms/libssh2_make_help.dcl	\
 vms/libssh2_make_kit.dcl vms/libssh2_make_lib.dcl vms/man2help.c	\
 vms/readme.vms vms/libssh2_config.h
 
-WIN32FILES = win32/GNUmakefile win32/test/GNUmakefile		\
-win32/libssh2_config.h win32/config.mk win32/rules.mk		\
-win32/Makefile.Watcom win32/libssh2.dsw win32/tests.dsp $(DSP)	\
-win32/msvcproj.head win32/msvcproj.foot win32/libssh2.rc
+WIN32FILES = win32/Makefile.Watcom win32/libssh2.rc
 
 EXTRA_DIST = $(WIN32FILES) buildconf $(NETWAREFILES) get_ver.awk HACKING \
  maketgz NMakefile TODO RELEASE-NOTES libssh2.pc.in $(VMSFILES) config.rpath
@@ -40,7 +32,7 @@ ACLOCAL_AMFLAGS = -I m4
 .PHONY: ChangeLog
 ChangeLog:
 	echo "see NEWS" > ./ChangeLog
-DISTCLEANFILES += ChangeLog
+DISTCLEANFILES = ChangeLog
 
 dist-hook:
 	rm -rf $(top_builddir)/tests/log
@@ -73,65 +65,3 @@ gen-coverage:
 		--title "$(PACKAGE_NAME)"
 
 coverage: init-coverage build-coverage gen-coverage
-
-# DSP/VCPROJ generation adapted from libcurl
-# only OpenSSL and WinCNG are supported with this build system
-CRYPTO_CSOURCES = openssl.c wincng.c
-CRYPTO_HHEADERS = openssl.h wincng.h
-# Makefile.inc provides the CSOURCES and HHEADERS defines
-include Makefile.inc
-
-WIN32SOURCES = $(CSOURCES)
-WIN32HEADERS = $(HHEADERS) libssh2_config.h
-
-$(DSP): win32/msvcproj.head win32/msvcproj.foot Makefile.am
-	echo "creating $(DSP)"
-	@( (cat $(srcdir)/win32/msvcproj.head; \
-	echo "# Begin Group \"Source Files\""; \
-	echo ""; \
-	echo "# PROP Default_Filter \"cpp;c;cxx\""; \
-	win32_srcs='$(WIN32SOURCES)'; \
-	sorted_srcs=`for file in $$win32_srcs; do echo $$file; done | sort`; \
-	for file in $$sorted_srcs; do \
-		echo "# Begin Source File"; \
-		echo ""; \
-		echo "SOURCE=..\\src\\"$$file; \
-		echo "# End Source File"; \
-	done; \
-	echo "# End Group"; \
-	echo "# Begin Group \"Header Files\""; \
-	echo ""; \
-	echo "# PROP Default_Filter \"h;hpp;hxx\""; \
-	win32_hdrs='$(WIN32HEADERS)'; \
-	sorted_hdrs=`for file in $$win32_hdrs; do echo $$file; done | sort`; \
-	for file in $$sorted_hdrs; do \
-		echo "# Begin Source File"; \
-		echo ""; \
-		if [ "$$file" == "libssh2_config.h" ]; \
-		then \
-			echo "SOURCE=.\\"$$file; \
-		else \
-			echo "SOURCE=..\\src\\"$$file; \
-		fi; \
-		echo "# End Source File"; \
-	done; \
-	echo "# End Group"; \
-	cat $(srcdir)/win32/msvcproj.foot) | \
-	awk '{printf("%s\r\n", gensub("\r", "", "g"))}' > $@ )
-
-$(VCPROJ): win32/vc8proj.head win32/vc8proj.foot Makefile.am
-	echo "creating $(VCPROJ)"
-	@( (cat $(srcdir)/vc8proj.head; \
-	win32_srcs='$(WIN32SOURCES)'; \
-	sorted_srcs=`for file in $$win32_srcs; do echo $$file; done | sort`; \
-	for file in $$sorted_srcs; do \
-		echo "<File RelativePath=\""..\src\$$file"\"></File>"; \
-	done; \
-	echo "</Filter><Filter	Name=\"Header Files\">"; \
-	win32_hdrs='$(WIN32HEADERS)'; \
-	sorted_hdrs=`for file in $$win32_hdrs; do echo $$file; done | sort`; \
-	for file in $$sorted_hdrs; do \
-		echo "<File RelativePath=\""..\src\$$file"\"></File>"; \
-	done; \
-	cat $(srcdir)/vc8proj.foot) | \
-	awk '{printf("%s\r\n", gensub("\r", "", "g"))}' > $@ )
