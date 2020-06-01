@@ -395,8 +395,12 @@ static int diffie_hellman_sha1(LIBSSH2_SESSION *session,
         }
 
         /* Compute the shared secret */
-        libssh2_dh_secret(&exchange_state->x, exchange_state->k,
-                          exchange_state->f, p, exchange_state->ctx);
+        if(!libssh2_dh_secret(&exchange_state->x, exchange_state->k,
+                              exchange_state->f, p, exchange_state->ctx)) {
+            ret = _libssh2_error(session, LIBSSH2_ERROR_KEY_EXCHANGE_FAILURE,
+                                 "Unable to compute shared secret");
+            goto clean_exit;
+        }
         exchange_state->k_value_len = _libssh2_bn_bytes(exchange_state->k) + 5;
         if(_libssh2_bn_bits(exchange_state->k) % 8) {
             /* don't need leading 00 */

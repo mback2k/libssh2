@@ -1901,6 +1901,9 @@ _libssh2_wincng_bignum_resize(_libssh2_bn *bn, unsigned long length)
     if(!bignum)
         return -1;
 
+    if(length > bn->length)
+        _libssh2_explicit_zero(bignum + bn->length, length - bn->length);
+
     bn->bignum = bignum;
     bn->length = length;
 
@@ -1916,7 +1919,8 @@ _libssh2_wincng_bignum_rand(_libssh2_bn *rnd, int bits, int top, int bottom)
     if(!rnd)
         return -1;
 
-    length = (unsigned long)(ceil((float)bits / 8) * sizeof(unsigned char));
+    length = (unsigned long)(ceil((float)bits/8.0f) * sizeof(unsigned char));
+    printf("length: %d [%d]\n", length, length * 8);
     if(_libssh2_wincng_bignum_resize(rnd, length))
         return -1;
 
@@ -1975,21 +1979,27 @@ _libssh2_wincng_bignum_mod_exp(_libssh2_bn *r,
     rsakey->cbModulus = m->length;
     rsakey->cbPrime1 = 0;
     rsakey->cbPrime2 = 0;
+    printf("rsakey->BitLength: %d\n", rsakey->BitLength);
+    printf("rsakey->cbPublicExp: %d\n", rsakey->cbPublicExp);
+    printf("rsakey->cbModulus: %d\n", rsakey->cbModulus);
 
     memcpy(key + offset, p->bignum, p->length);
     offset += p->length;
 
     memcpy(key + offset, m->bignum, m->length);
 
+    printf("_libssh2_wincng.hAlgRSA: %d\n", _libssh2_wincng.hAlgRSA);
     ret = BCryptImportKeyPair(_libssh2_wincng.hAlgRSA, NULL,
                               BCRYPT_RSAPUBLIC_BLOB, &hKey, key, keylen,
                               BCRYPT_NO_KEY_VALIDATION);
-
+    printf("BCryptImportKeyPair: %d\n", ret);
     if(BCRYPT_SUCCESS(ret)) {
         ret = BCryptEncrypt(hKey, a->bignum, a->length, NULL, NULL, 0,
                             NULL, 0, &length, BCRYPT_PAD_NONE);
+        printf("BCryptEncrypt: %d\n", ret);
         if(BCRYPT_SUCCESS(ret)) {
             if(!_libssh2_wincng_bignum_resize(r, length)) {
+                printf("_libssh2_wincng_bignum_resize: %d\n", length);
                 length = max(a->length, length);
                 bignum = malloc(length);
                 if(bignum) {
