@@ -1,0 +1,23 @@
+name: Docker
+
+on:
+  workflow_dispatch:
+      remote_host:
+        description: 'remote_host'
+        required: false
+      remote_user:
+        description: 'remote_user'
+        required: false
+        default: 'appveyor'
+      remote_auth:
+        description: 'remote_auth'
+        required: false
+
+jobs:
+  daemon:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "remote_host=${{ github.event.inputs.remote_host }}"
+          echo "remote_user=${{ github.event.inputs.remote_user }}"
+          echo "remote_auth=${{ github.event.inputs.remote_auth }}"
