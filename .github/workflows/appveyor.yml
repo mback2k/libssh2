@@ -1,0 +1,43 @@
+name: AppVeyor
+
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_host:
+        required: true
+      ssh_port:
+        required: true
+      ssh_user:
+        required: true
+      ssh_hostcfg:
+        required: true
+      ssh_hostkey:
+        required: true
+      ssh_privkey:
+        required: true
+
+jobs:
+  daemon:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Setup SSH client configuration
+        run: |
+          cd ~
+          mkdir .ssh
+          chmod 0700 .ssh
+          echo "ServerAliveInterval 45" > .ssh/config
+          echo "Host ${{ github.event.inputs.ssh_host }}" >> .ssh/config
+          echo "${{ github.event.inputs.ssh_hostcfg }}" | sed 's/,/\n/g' | sed 's/^/\t/g' >> .ssh/config
+          chmod 0600 .ssh/config
+          cat .ssh/config
+          echo "${{ github.event.inputs.ssh_host }} ${{ github.event.inputs.ssh_hostkey }}" | sed 's/,/\n${{ github.event.inputs.ssh_host }} /g' > .ssh/known_hosts
+          chmod 0600 .ssh/known_hosts
+          cat .ssh/known_hosts
+          echo "${{ github.event.inputs.ssh_privkey }}" | sed 's/,/\n/g' > .ssh/id_rsa
+          chmod 0600 .ssh/id_rsa
+
+      # we sleep explicitly to allow the remote system to kill the sleep process
+      - name: Connect to AppVeyor and sleep
+        run: |
+          ssh -v -p ${{ github.event.inputs.ssh_port }} ${{ github.event.inputs.ssh_user }}@${{ github.event.inputs.ssh_host }} sleep 1h
