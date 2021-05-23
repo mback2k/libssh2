@@ -1,4 +1,4 @@
-name: AppVeyor
+name: AppVeyor Docker Bridge
 
 on:
   workflow_dispatch:
@@ -9,7 +9,7 @@ on:
         required: true
       ssh_user:
         required: true
-      ssh_hostcfg:
+      ssh_forward:
         required: true
       ssh_hostkey:
         required: true
@@ -28,7 +28,7 @@ jobs:
           chmod 0700 .ssh
           echo "ServerAliveInterval 45" > .ssh/config
           echo "Host ${{ github.event.inputs.ssh_host }}" >> .ssh/config
-          echo "${{ github.event.inputs.ssh_hostcfg }}" | sed 's/,/\n/g' | sed 's/^/\t/g' >> .ssh/config
+          echo "${{ github.event.inputs.ssh_forward }}" | sed 's/,/\n/g' | sed 's/^/\tRemoteForward /g' >> .ssh/config
           chmod 0600 .ssh/config
           cat .ssh/config
           echo "${{ github.event.inputs.ssh_host }} ${{ github.event.inputs.ssh_hostkey }}" | sed 's/,/\n${{ github.event.inputs.ssh_host }} /g' > .ssh/known_hosts

@@ -77,11 +77,9 @@ matrix:
 install:
   # prepare local SSH server for reverse tunneling from GitHub Actions hosting our docker container
   - ps: |
-      if($env:github_authorization) {
-        $env:OPENSSH_SERVER_PORT = Get-Random -Minimum 2000 -Maximum 2300
-        [System.Environment]::SetEnvironmentVariable("OPENSSH_SERVER_PORT", $env:OPENSSH_SERVER_PORT)
-      }
-  - ps: if($env:github_authorization) { .\ci\appveyor\docker-bridge.ps1 }
+      $env:OPENSSH_SERVER_PORT = Get-Random -Minimum 2000 -Maximum 2300
+      [System.Environment]::SetEnvironmentVariable("OPENSSH_SERVER_PORT", $env:OPENSSH_SERVER_PORT)
+  - ps: .\ci\appveyor\docker-bridge.ps1
   - choco install -y docker-cli
 
 build_script:
@@ -91,24 +89,22 @@ build_script:
 
 before_test:
   - ps: |
-      if($env:github_authorization) {
-        Write-Host "Waiting for SSH connection from GitHub Actions" -NoNewline
-        while((Get-Process -Name "sshd" -ErrorAction SilentlyContinue).Count -eq 1) {
-          Write-Host "." -NoNewline
-          Start-Sleep -Seconds 1
-        }
-        if((Get-Process -Name "sshd" -ErrorAction SilentlyContinue).Count -gt	1) {
-          $env:DOCKER_HOST = "tcp://127.0.0.1:2375"
-          [System.Environment]::SetEnvironmentVariable("DOCKER_HOST", $env:DOCKER_HOST)
-          Write-Host "... ready!"
-        } else {
-          Write-Host "... failed!"
-        }
+      Write-Host "Waiting for SSH connection from GitHub Actions" -NoNewline
+      while((Get-Process -Name "sshd" -ErrorAction SilentlyContinue).Count -eq 1) {
+        Write-Host "." -NoNewline
+        Start-Sleep -Seconds 1
+      }
+      if((Get-Process -Name "sshd" -ErrorAction SilentlyContinue).Count -gt	1) {
+        $env:DOCKER_HOST = "tcp://127.0.0.1:2375"
+        [System.Environment]::SetEnvironmentVariable("DOCKER_HOST", $env:DOCKER_HOST)
+        Write-Host "... ready!"
+      } else {
+        Write-Host "... failed!"
       }
 
 test_script:
   - ps: cd _builds
-  - ps: if($env:github_authorization) { ctest -VV -C $($env:CONFIGURATION) --output-on-failure }
+  - ps: ctest -VV -C $($env:CONFIGURATION) --output-on-failure
 
 on_failure:
   - ps: if(Test-Path _builds/CMakeFiles/CMakeOutput.log) { cat _builds/CMakeFiles/CMakeOutput.log }
@@ -116,11 +112,9 @@ on_failure:
 
 on_finish:
   - ps: |
-      if($env:github_authorization) {
-        Get-Process -Name "sleep" | Stop-Process
-        Start-Sleep -Seconds 3
-        Get-Process -Name "sshd" | Stop-Process
-      }
+      Get-Process -Name "sleep" -ErrorAction SilentlyContinue | Stop-Process
+      Start-Sleep -Seconds 3
+      Get-Process -Name "sshd" -ErrorAction SilentlyContinue | Stop-Process
 
 # whitelist branches to avoid testing feature branches twice (as branch and as pull request)
 branches:
